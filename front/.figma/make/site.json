@@ -1,0 +1,10 @@
+{
+  "description": "Manage study tasks with a gamified dashboard that tracks time, progress, and achievements to boost productivity and motivation for learners.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
