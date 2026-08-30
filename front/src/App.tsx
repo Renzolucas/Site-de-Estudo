@@ -1,4 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import api, {
+  getTasksBySeason,
+  createTask,
+  deleteTask,
+  updateTaskStatus,
+  logTime,
+  getUserProfile,
+  getUserStats,
+  checkApiHealth,
+  type TaskResponse,
+  type UserProfileResponse,
+  type Season,
+} from "./services/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -12,11 +25,16 @@ interface MacroTask {
   completed: boolean;
   expanded: boolean;
   notes: string;
+  category?: string;
+  plannedMinutes?: number;
+  actualMinutes?: number;
+  xpReward?: number;
 }
 
 interface RoadmapQuarter {
   id: number;
   season: string;
+  seasonKey: Season;
   quarter: string;
   icon: string;
   subtitle: string;
@@ -50,9 +68,98 @@ interface Badge {
   total?: number;
 }
 
-// ── Data ───────────────────────────────────────────────────────────────────
+interface NotificationToast {
+  id: number;
+  type: "success" | "info" | "xp" | "error";
+  title: string;
+  message: string;
+  xp?: number;
+}
 
-const TASKS: Task[] = [
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const formatMinutesToHm = (minutes: number | null | undefined): string => {
+  if (!minutes || minutes <= 0) return "0m";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (h > 0) return `${h}h 00m`;
+  return `${m}m`;
+};
+
+const parseTimeToMinutes = (s: string): number => {
+  if (!s) return 0;
+  const hm = s.match(/(\d+)h\s*(\d+)m/);
+  const hOnly = s.match(/(\d+)h/);
+  const mOnly = s.match(/(\d+)m/);
+  if (hm) return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10);
+  if (hOnly) return parseInt(hOnly[1], 10) * 60;
+  if (mOnly) return parseInt(mOnly[1], 10);
+  return 0;
+};
+
+const mapCategoryColor = (cat: string = ""): string => {
+  const c = cat.toUpperCase();
+  if (c.includes("JAVA") || c.includes("BACKEND")) return "#6366F1";
+  if (c.includes("FRONTEND") || c.includes("REACT")) return "#06B6D4";
+  if (c.includes("EXERCISE") || c.includes("WORKOUT")) return "#10B981";
+  if (c.includes("ENGLISH")) return "#F97316";
+  if (c.includes("DATABASE") || c.includes("SYSTEM")) return "#8B5CF6";
+  if (c.includes("LEETCODE") || c.includes("ALGO")) return "#EC4899";
+  if (c.includes("DEVOPS") || c.includes("CLOUD")) return "#3B82F6";
+  return "#A855F7";
+};
+
+const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
+  const startHours = [8, 10, 11, 14, 16, 17];
+  const startH = startHours[index % startHours.length];
+  const durH = Math.max(1, Math.round(t.plannedDurationMinutes / 60));
+  const endH = startH + durH;
+
+  const startStr = `${String(startH).padStart(2, "0")}:00`;
+  const endStr = `${String(endH).padStart(2, "0")}:00`;
+
+  let status: TaskStatus = "pending";
+  if (t.status === "COMPLETED") status = "completed";
+  else if (t.status === "PARTIAL") status = "partial";
+  else if (t.status === "IN_PROGRESS") status = "in-progress";
+
+  return {
+    id: t.id,
+    category: t.category.replace(/_/g, " "),
+    categoryColor: mapCategoryColor(t.category),
+    title: t.title,
+    subtitle: t.description || "Microservices & clean code principles",
+    plannedTime: formatMinutesToHm(t.plannedDurationMinutes),
+    actualTime: t.actualDurationMinutes ? formatMinutesToHm(t.actualDurationMinutes) : null,
+    status,
+    timeStart: startStr,
+    timeEnd: endStr,
+    xpReward: t.xpReward || 80,
+  };
+};
+
+const getLevelTitle = (level: number): string => {
+  if (level <= 1) return "Novice";
+  if (level <= 3) return "Apprentice";
+  if (level <= 5) return "Scholar";
+  if (level <= 8) return "Master";
+  if (level <= 12) return "Grandmaster";
+  return "Legend";
+};
+
+// ── Initial Mock / Fallback Data ───────────────────────────────────────────
+
+const INITIAL_USER: UserProfileResponse = {
+  id: 1,
+  name: "Alexandre K.",
+  email: "alexandre@studyos.com",
+  level: 5,
+  currentXp: 750,
+  streakDays: 12,
+};
+
+const INITIAL_TASKS: Task[] = [
   {
     id: 1,
     category: "Java Backend",
@@ -120,6 +227,77 @@ const TASKS: Task[] = [
   },
 ];
 
+const INITIAL_QUARTERS: RoadmapQuarter[] = [
+  {
+    id: 1,
+    season: "Summer",
+    seasonKey: "SUMMER",
+    quarter: "Q1",
+    icon: "☀️",
+    subtitle: "Java Backend Foundations",
+    goal: "Complete Spring Boot mastery path and ship a production-ready REST API with authentication, testing, and CI/CD pipeline.",
+    accentColor: "#F97316",
+    glowColor: "rgba(249,115,22,0.15)",
+    tasks: [
+      { id: 101, title: "Spring Boot core modules", dueDate: "2026-07-15", completed: true, expanded: false, notes: "Controllers, services, repos, DI", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 120 },
+      { id: 102, title: "REST API + OpenAPI docs", dueDate: "2026-07-28", completed: true, expanded: false, notes: "Swagger, versioning, error handling", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 90 },
+      { id: 103, title: "Spring Security + JWT", dueDate: "2026-08-10", completed: false, expanded: false, notes: "OAuth2 integration planned", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 100 },
+      { id: 104, title: "Unit & integration testing", dueDate: "2026-08-25", completed: false, expanded: false, notes: "JUnit 5, Mockito, Testcontainers", category: "JAVA_BACKEND", plannedMinutes: 60, xpReward: 80 },
+    ],
+  },
+  {
+    id: 2,
+    season: "Autumn",
+    seasonKey: "AUTUMN",
+    quarter: "Q2",
+    icon: "🍂",
+    subtitle: "Databases & System Design",
+    goal: "Deep-dive into relational and NoSQL databases, query optimization, and distributed system design patterns.",
+    accentColor: "#10B981",
+    glowColor: "rgba(16,185,129,0.12)",
+    tasks: [
+      { id: 201, title: "PostgreSQL advanced indexing", dueDate: "2026-09-20", completed: false, expanded: false, notes: "B-tree, GIN, partial indexes", category: "DATABASE", plannedMinutes: 90, xpReward: 90 },
+      { id: 202, title: "Redis caching patterns", dueDate: "2026-10-05", completed: false, expanded: false, notes: "Cache-aside, write-through", category: "DATABASE", plannedMinutes: 60, xpReward: 80 },
+      { id: 203, title: "System design interviews", dueDate: "2026-10-20", completed: false, expanded: false, notes: "URL shortener, Twitter feed, etc.", category: "DATABASE", plannedMinutes: 120, xpReward: 120 },
+      { id: 204, title: "MongoDB aggregation pipeline", dueDate: "2026-11-01", completed: false, expanded: false, notes: "Complex analytics queries", category: "DATABASE", plannedMinutes: 60, xpReward: 70 },
+    ],
+  },
+  {
+    id: 3,
+    season: "Winter",
+    seasonKey: "WINTER",
+    quarter: "Q3",
+    icon: "❄️",
+    subtitle: "Algorithms & English Fluency",
+    goal: "Reach LeetCode 200 solved problems milestone and achieve B2+ business English through structured writing practice.",
+    accentColor: "#6366F1",
+    glowColor: "rgba(99,102,241,0.12)",
+    tasks: [
+      { id: 301, title: "Dynamic programming series", dueDate: "2026-11-30", completed: false, expanded: false, notes: "50 DP problems minimum", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 110 },
+      { id: 302, title: "Graph algorithms mastery", dueDate: "2026-12-15", completed: false, expanded: false, notes: "BFS, DFS, Dijkstra, A*", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 100 },
+      { id: 303, title: "Business writing course", dueDate: "2026-12-20", completed: false, expanded: false, notes: "Formal emails, reports, proposals", category: "ENGLISH", plannedMinutes: 45, xpReward: 60 },
+      { id: 304, title: "Mock interview × 10", dueDate: "2027-01-10", completed: false, expanded: false, notes: "2 per week with feedback", category: "ENGLISH", plannedMinutes: 60, xpReward: 90 },
+    ],
+  },
+  {
+    id: 4,
+    season: "Spring",
+    seasonKey: "SPRING",
+    quarter: "Q4",
+    icon: "🌸",
+    subtitle: "Cloud & Career Launch",
+    goal: "Obtain AWS Solutions Architect certification and secure a senior backend engineering role with target €80k+ compensation.",
+    accentColor: "#8B5CF6",
+    glowColor: "rgba(139,92,246,0.12)",
+    tasks: [
+      { id: 401, title: "AWS SAA-C03 certification", dueDate: "2027-02-01", completed: false, expanded: false, notes: "EC2, RDS, Lambda, VPC focus", category: "DEVOPS", plannedMinutes: 180, xpReward: 150 },
+      { id: 402, title: "Portfolio project: SaaS MVP", dueDate: "2027-02-28", completed: false, expanded: false, notes: "Full-stack with Spring + React", category: "FRONTEND", plannedMinutes: 120, xpReward: 130 },
+      { id: 403, title: "Technical interviews prep", dueDate: "2027-03-15", completed: false, expanded: false, notes: "System design + coding rounds", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 100 },
+      { id: 404, title: "Target job applications", dueDate: "2027-04-01", completed: false, expanded: false, notes: "20 applications minimum", category: "OTHER", plannedMinutes: 60, xpReward: 70 },
+    ],
+  },
+];
+
 const BADGES: Badge[] = [
   { id: 1, icon: "🌅", name: "Early Bird", description: "Complete a task before 8 AM", unlocked: true },
   { id: 2, icon: "🔥", name: "Week Warrior", description: "7-day study streak", unlocked: true },
@@ -132,7 +310,7 @@ const BADGES: Badge[] = [
   { id: 9, icon: "🎯", name: "Precision", description: "Match planned vs actual time (±5m) 10 times", unlocked: false, progress: 4, total: 10 },
 ];
 
-// ── Helper Components ──────────────────────────────────────────────────────
+// ── Components ─────────────────────────────────────────────────────────────
 
 const StatusBadge = ({ status }: { status: TaskStatus }) => {
   const config = {
@@ -151,13 +329,13 @@ const StatusBadge = ({ status }: { status: TaskStatus }) => {
 };
 
 const XPBar = ({ current, max }: { current: number; max: number }) => {
-  const pct = Math.round((current / max) * 100);
+  const pct = Math.min(Math.max(Math.round((current / max) * 100), 0), 100);
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-slate-400 font-mono whitespace-nowrap">{current}/{max} XP</span>
       <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -165,52 +343,71 @@ const XPBar = ({ current, max }: { current: number; max: number }) => {
   );
 };
 
-// ── Modal ──────────────────────────────────────────────────────────────────
+// ── Time Log Modal ─────────────────────────────────────────────────────────
 
 interface ModalProps {
   task: Task;
+  userXp: number;
+  userLevel: number;
   onClose: () => void;
+  onTimeLogged: (taskId: number, minutes: number, status: string, notes: string, updatedUser: UserProfileResponse | null) => void;
 }
 
-// Parses "2h 00m" → total minutes
-const parseTime = (s: string): number => {
-  const hm = s.match(/(\d+)h\s*(\d+)m/);
-  const hOnly = s.match(/(\d+)h/);
-  const mOnly = s.match(/(\d+)m/);
-  if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
-  if (hOnly) return parseInt(hOnly[1]) * 60;
-  if (mOnly) return parseInt(mOnly[1]);
-  return 0;
-};
-
-const TimeLogModal = ({ task, onClose }: ModalProps) => {
-  const [hours, setHours] = useState(0);
+const TimeLogModal = ({ task, userXp, userLevel, onClose, onTimeLogged }: ModalProps) => {
+  const [hours, setHours] = useState(1);
   const [minutes, setMinutes] = useState(0);
   const [completionStatus, setCompletionStatus] = useState<"complete" | "partial" | "interrupted">("complete");
   const [notes, setNotes] = useState("");
-  const [phase, setPhase] = useState<"idle" | "saving" | "done">("idle");
+  const [phase, setPhase] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const plannedMins = parseTime(task.plannedTime);
+  const plannedMins = parseTimeToMinutes(task.plannedTime);
   const actualMins = hours * 60 + minutes;
   const hasActual = actualMins > 0;
 
-  // Efficiency ratio — caps at 100% for the bar
   const efficiencyPct = plannedMins > 0 && hasActual
     ? Math.min(Math.round((actualMins / plannedMins) * 100), 140)
     : 0;
   const overran = hasActual && actualMins > plannedMins;
   const underPct = plannedMins > 0 && hasActual ? Math.min(actualMins / plannedMins, 1) * 100 : 0;
 
-  // XP multiplier based on status
   const xpMultiplier = completionStatus === "complete" ? 1 : completionStatus === "partial" ? 0.6 : 0.25;
   const xpEarned = Math.round(task.xpReward * xpMultiplier);
 
-  const handleSave = () => {
+  const levelProgress = userXp % 500;
+  const nextLevelProgress = (levelProgress + xpEarned);
+
+  const handleSave = async () => {
+    if (actualMins <= 0) {
+      setErrorMessage("Por favor, selecione pelo menos 5 minutos.");
+      return;
+    }
+
     setPhase("saving");
-    setTimeout(() => {
+    setErrorMessage("");
+
+    try {
+      // Chamada oficial à API REST do Spring Boot
+      const response = await logTime(task.id, {
+        actualMinutes: actualMins,
+        completionStatus: completionStatus === "complete" ? "COMPLETED" : completionStatus === "partial" ? "PARTIAL" : "INTERRUPTED",
+        notes,
+      });
+
       setPhase("done");
-      setTimeout(onClose, 1400);
-    }, 700);
+      setTimeout(() => {
+        onTimeLogged(task.id, actualMins, completionStatus, notes, response?.user || null);
+        onClose();
+      }, 1200);
+    } catch (err: any) {
+      console.warn("Backend request failed, falling back to local optimistic state:", err);
+      // Suporte a modo offline gracioso
+      setPhase("done");
+      setTimeout(() => {
+        onTimeLogged(task.id, actualMins, completionStatus, notes, null);
+        onClose();
+      }, 1200);
+    }
   };
 
   const statusOptions = [
@@ -268,9 +465,8 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
           boxShadow: "0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08)",
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="relative px-6 pt-6 pb-5">
-          {/* Subtle top gradient accent */}
           <div
             className="absolute inset-x-0 top-0 h-px"
             style={{ background: `linear-gradient(90deg, transparent, ${task.categoryColor}60, transparent)` }}
@@ -312,8 +508,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
         />
 
         <div className="px-6 py-5 space-y-5 overflow-y-auto max-h-[calc(100vh-160px)]">
-
-          {/* ── Duration Comparison ── */}
+          {/* Duration Comparison */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Duration</label>
@@ -328,9 +523,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
               )}
             </div>
 
-            {/* Two-column: planned (readonly) vs actual (stepper) */}
             <div className="grid grid-cols-2 gap-3">
-              {/* Planned */}
               <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
                 <p className="text-xs text-slate-600 mb-2 flex items-center gap-1.5">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
@@ -342,7 +535,6 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                 <p className="text-xs text-slate-700 mt-1">target</p>
               </div>
 
-              {/* Actual — stepper */}
               <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
                 <p className="text-xs text-slate-500 mb-2 flex items-center gap-1.5">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5">
@@ -351,7 +543,6 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                   Actual
                 </p>
                 <div className="flex items-end gap-1">
-                  {/* Hours */}
                   <div className="flex flex-col items-center gap-0.5">
                     <button onClick={() => setHours(Math.min(23, hours + 1))}
                       className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▲</button>
@@ -363,7 +554,6 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                   </div>
                   <span className="font-mono text-lg text-slate-500 mb-0.5">h</span>
                   <div className="w-2" />
-                  {/* Minutes */}
                   <div className="flex flex-col items-center gap-0.5">
                     <button onClick={() => setMinutes(Math.min(55, minutes + 5))}
                       className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▲</button>
@@ -378,7 +568,6 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
               </div>
             </div>
 
-            {/* Comparison bar */}
             {hasActual && (
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-slate-600 mb-1.5">
@@ -389,9 +578,6 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                   <span>{task.plannedTime}</span>
                 </div>
                 <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
-                  {/* Planned marker line */}
-                  <div className="absolute top-0 bottom-0 w-px bg-slate-600" style={{ left: "100%" }} />
-                  {/* Actual bar */}
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
@@ -406,7 +592,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
             )}
           </div>
 
-          {/* ── Completion Status ── */}
+          {/* Completion Status */}
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
               Completion Status
@@ -417,6 +603,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                 return (
                   <button
                     key={opt.key}
+                    type="button"
                     onClick={() => setCompletionStatus(opt.key)}
                     className={`flex flex-col items-center gap-2 px-2 py-3 rounded-xl border text-xs font-medium transition-all ${
                       isActive ? opt.active : `${opt.inactive} hover:border-slate-600 hover:text-slate-400`
@@ -433,11 +620,11 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
             </div>
           </div>
 
-          {/* ── Notes ── */}
+          {/* Notes */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                Notes & Interruptions
+                Notes &amp; Interruptions
               </label>
               <span className="text-xs text-slate-700 font-mono">{notes.length}/400</span>
             </div>
@@ -446,7 +633,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value.slice(0, 400))}
                 placeholder="What happened during this session? Any blockers, interruptions, or observations worth noting…"
-                rows={4}
+                rows={3}
                 className="w-full px-4 py-3 rounded-xl text-sm leading-relaxed resize-none transition-all"
                 style={{
                   background: "rgba(15,18,28,0.8)",
@@ -455,21 +642,13 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                   outline: "none",
                   fontFamily: "'Inter', system-ui, sans-serif",
                 }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(99,102,241,0.45)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.08)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(255,255,255,0.07)";
-                  e.target.style.boxShadow = "none";
-                }}
               />
-              {/* Quick-insert chips */}
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {["Meeting ran over", "Lost focus", "Technical issues", "Personal errand"].map((chip) => (
+                {["Meeting ran over", "Lost focus", "Technical issues", "Sprint completed"].map((chip) => (
                   <button
                     key={chip}
-                    onClick={() => setNotes((n) => n ? `${n} ${chip}.` : `${chip}.`)}
+                    type="button"
+                    onClick={() => setNotes((n) => (n ? `${n} ${chip}.` : `${chip}.`))}
                     className="text-xs px-2 py-1 rounded-md text-slate-600 border border-slate-800 hover:border-slate-600 hover:text-slate-400 transition-all"
                   >
                     {chip}
@@ -479,7 +658,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
             </div>
           </div>
 
-          {/* ── XP Preview ── */}
+          {/* XP Preview */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -495,37 +674,39 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                 <div>
                   <p className="text-xs font-semibold text-slate-300">XP Reward</p>
                   <p className="text-xs text-slate-600">
-                    {completionStatus === "complete" ? "Full reward" : completionStatus === "partial" ? "60% reward" : "25% reward"}
+                    {completionStatus === "complete" ? "Full reward (100%)" : completionStatus === "partial" ? "Partial (60%)" : "Interrupted (25%)"}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold font-mono text-indigo-400">+{xpEarned}</p>
-                <p className="text-xs text-slate-600">750 → {750 + xpEarned} XP</p>
+                <p className="text-lg font-bold font-mono text-indigo-400">+{xpEarned} XP</p>
+                <p className="text-xs text-slate-600">{userXp} → {userXp + xpEarned} XP</p>
               </div>
             </div>
 
-            {/* Mini XP bar showing post-claim state */}
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-slate-600">
-                <span>Level 5</span>
-                <span>{750 + xpEarned}/1000 XP</span>
-                <span>Level 6</span>
+                <span>Level {userLevel}</span>
+                <span>{nextLevelProgress}/500 XP</span>
+                <span>Level {userLevel + Math.floor(nextLevelProgress / 500)}</span>
               </div>
               <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
-                <div className="h-full rounded-full relative overflow-hidden" style={{ width: `${Math.min(((750 + xpEarned) / 1000) * 100, 100)}%` }}>
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-violet-500" />
-                  <div
-                    className="absolute right-0 top-0 bottom-0 w-6 opacity-60"
-                    style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4))" }}
-                  />
-                </div>
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
+                  style={{ width: `${Math.min((nextLevelProgress / 500) * 100, 100)}%` }}
+                />
               </div>
             </div>
           </div>
+
+          {errorMessage && (
+            <p className="text-xs text-red-400 bg-red-950/30 border border-red-800/40 p-2 rounded-lg text-center">
+              {errorMessage}
+            </p>
+          )}
         </div>
 
-        {/* ── Footer / Save ── */}
+        {/* Footer / Save */}
         <div className="px-6 pb-6 pt-2">
           <div
             className="h-px mb-4"
@@ -534,6 +715,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
           <div className="flex gap-3">
             <button
               onClick={onClose}
+              type="button"
               className="px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all"
             >
               Cancel
@@ -541,6 +723,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
             <button
               onClick={handleSave}
               disabled={phase !== "idle"}
+              type="button"
               className={`flex-1 relative flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all overflow-hidden ${
                 phase === "done"
                   ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
@@ -566,7 +749,7 @@ const TimeLogModal = ({ task, onClose }: ModalProps) => {
                   <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   </svg>
-                  Saving…
+                  Enviando para API…
                 </span>
               )}
               {phase === "done" && (
@@ -598,7 +781,6 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
           : "border-slate-800/60 bg-slate-900/40"
       }`}
     >
-      {/* Left accent bar */}
       <div
         className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full"
         style={{ background: task.categoryColor }}
@@ -607,7 +789,6 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
       <div className="pl-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            {/* Time range + category */}
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs font-mono text-slate-500">{task.timeStart}–{task.timeEnd}</span>
               <span className="text-slate-700">·</span>
@@ -619,7 +800,6 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
               </span>
             </div>
 
-            {/* Title */}
             <h3 className={`font-semibold text-sm leading-snug mb-0.5 ${task.status === "completed" ? "text-slate-400 line-through decoration-slate-600" : "text-slate-100"}`}>
               {task.title}
             </h3>
@@ -632,7 +812,6 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
           </div>
         </div>
 
-        {/* Time tracking row */}
         <div className="mt-3 flex items-center justify-between">
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
@@ -778,76 +957,7 @@ const PerformanceView = () => {
   );
 };
 
-// ── Roadmap Initial Data ───────────────────────────────────────────────────
-
-const INITIAL_QUARTERS: RoadmapQuarter[] = [
-  {
-    id: 1,
-    season: "Summer",
-    quarter: "Q1",
-    icon: "☀️",
-    subtitle: "Java Backend Foundations",
-    goal: "Complete Spring Boot mastery path and ship a production-ready REST API with authentication, testing, and CI/CD pipeline.",
-    accentColor: "#F97316",
-    glowColor: "rgba(249,115,22,0.15)",
-    tasks: [
-      { id: 101, title: "Spring Boot core modules", dueDate: "2026-07-15", completed: true, expanded: false, notes: "Controllers, services, repos, DI" },
-      { id: 102, title: "REST API + OpenAPI docs", dueDate: "2026-07-28", completed: true, expanded: false, notes: "Swagger, versioning, error handling" },
-      { id: 103, title: "Spring Security + JWT", dueDate: "2026-08-10", completed: false, expanded: false, notes: "OAuth2 integration planned" },
-      { id: 104, title: "Unit & integration testing", dueDate: "2026-08-25", completed: false, expanded: false, notes: "JUnit 5, Mockito, Testcontainers" },
-    ],
-  },
-  {
-    id: 2,
-    season: "Autumn",
-    quarter: "Q2",
-    icon: "🍂",
-    subtitle: "Databases & System Design",
-    goal: "Deep-dive into relational and NoSQL databases, query optimization, and distributed system design patterns.",
-    accentColor: "#10B981",
-    glowColor: "rgba(16,185,129,0.12)",
-    tasks: [
-      { id: 201, title: "PostgreSQL advanced indexing", dueDate: "2026-09-20", completed: false, expanded: false, notes: "B-tree, GIN, partial indexes" },
-      { id: 202, title: "Redis caching patterns", dueDate: "2026-10-05", completed: false, expanded: false, notes: "Cache-aside, write-through" },
-      { id: 203, title: "System design interviews", dueDate: "2026-10-20", completed: false, expanded: false, notes: "URL shortener, Twitter feed, etc." },
-      { id: 204, title: "MongoDB aggregation pipeline", dueDate: "2026-11-01", completed: false, expanded: false, notes: "Complex analytics queries" },
-    ],
-  },
-  {
-    id: 3,
-    season: "Winter",
-    quarter: "Q3",
-    icon: "❄️",
-    subtitle: "Algorithms & English Fluency",
-    goal: "Reach LeetCode 200 solved problems milestone and achieve B2+ business English through structured writing practice.",
-    accentColor: "#6366F1",
-    glowColor: "rgba(99,102,241,0.12)",
-    tasks: [
-      { id: 301, title: "Dynamic programming series", dueDate: "2026-11-30", completed: false, expanded: false, notes: "50 DP problems minimum" },
-      { id: 302, title: "Graph algorithms mastery", dueDate: "2026-12-15", completed: false, expanded: false, notes: "BFS, DFS, Dijkstra, A*" },
-      { id: 303, title: "Business writing course", dueDate: "2026-12-20", completed: false, expanded: false, notes: "Formal emails, reports, proposals" },
-      { id: 304, title: "Mock interview × 10", dueDate: "2027-01-10", completed: false, expanded: false, notes: "2 per week with feedback" },
-    ],
-  },
-  {
-    id: 4,
-    season: "Spring",
-    quarter: "Q4",
-    icon: "🌸",
-    subtitle: "Cloud & Career Launch",
-    goal: "Obtain AWS Solutions Architect certification and secure a senior backend engineering role with target €80k+ compensation.",
-    accentColor: "#8B5CF6",
-    glowColor: "rgba(139,92,246,0.12)",
-    tasks: [
-      { id: 401, title: "AWS SAA-C03 certification", dueDate: "2027-02-01", completed: false, expanded: false, notes: "EC2, RDS, Lambda, VPC focus" },
-      { id: 402, title: "Portfolio project: SaaS MVP", dueDate: "2027-02-28", completed: false, expanded: false, notes: "Full-stack with Spring + React" },
-      { id: 403, title: "Technical interviews prep", dueDate: "2027-03-15", completed: false, expanded: false, notes: "System design + coding rounds" },
-      { id: 404, title: "Target job applications", dueDate: "2027-04-01", completed: false, expanded: false, notes: "20 applications minimum" },
-    ],
-  },
-];
-
-// ── Roadmap View ───────────────────────────────────────────────────────────
+// ── Roadmap Icons ──────────────────────────────────────────────────────────
 
 const PencilIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -879,33 +989,42 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 interface AddTaskModalProps {
   quarters: RoadmapQuarter[];
   defaultQuarterId?: number;
-  onAdd: (quarterId: number, title: string, dueDate: string) => void;
+  onAdd: (quarterId: number, title: string, dueDate: string, category?: string, plannedMinutes?: number) => Promise<void>;
   onClose: () => void;
 }
 
 const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskModalProps) => {
   const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0].id);
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("JAVA_BACKEND");
+  const [plannedMinutes, setPlannedMinutes] = useState(60);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
     return d.toISOString().split("T")[0];
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!title.trim()) { setError("Task title is required."); return; }
-    onAdd(selectedQuarter, title.trim(), dueDate);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onAdd(selectedQuarter, title.trim(), dueDate, category, plannedMinutes);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Erro ao adicionar tarefa.");
+      setIsSubmitting(false);
+    }
   };
 
-  const q = quarters.find(q => q.id === selectedQuarter)!;
+  const q = quarters.find(q => q.id === selectedQuarter) || quarters[0];
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(6,8,16,0.9)", backdropFilter: "blur(10px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
     >
       <div
         className="w-full max-w-[440px] rounded-2xl border shadow-2xl overflow-hidden"
@@ -915,105 +1034,126 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
           boxShadow: "0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.06)",
         }}
       >
-        {/* Header */}
         <div className="relative px-6 pt-6 pb-5">
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent)" }} />
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-slate-100">Add Roadmap Task</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Assign to a seasonal quarter</p>
+              <p className="text-xs text-slate-500 mt-0.5">Sincroniza com a API REST Spring Boot</p>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all">
+            <button onClick={onClose} disabled={isSubmitting} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
           </div>
         </div>
 
-        <div className="px-6 pb-6 space-y-5">
-          {/* Season selector */}
+        <div className="px-6 pb-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Assign to Quarter</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Assign to Quarter</label>
             <div className="grid grid-cols-2 gap-2">
-              {quarters.map((q) => (
+              {quarters.map((quarter) => (
                 <button
-                  key={q.id}
-                  onClick={() => setSelectedQuarter(q.id)}
-                  className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border text-left transition-all ${
-                    selectedQuarter === q.id
+                  key={quarter.id}
+                  type="button"
+                  onClick={() => setSelectedQuarter(quarter.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    selectedQuarter === quarter.id
                       ? "border-opacity-60 text-slate-100"
                       : "border-slate-700/40 text-slate-500 hover:border-slate-600 hover:text-slate-400"
                   }`}
-                  style={selectedQuarter === q.id ? {
-                    borderColor: q.accentColor + "80",
-                    background: q.accentColor + "12",
+                  style={selectedQuarter === quarter.id ? {
+                    borderColor: quarter.accentColor + "80",
+                    background: quarter.accentColor + "12",
                   } : {}}
                 >
-                  <span className="text-lg">{q.icon}</span>
+                  <span className="text-lg">{quarter.icon}</span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold truncate">{q.season} · {q.quarter}</p>
-                    <p className="text-xs truncate" style={{ color: selectedQuarter === q.id ? q.accentColor : undefined, opacity: 0.7 }}>{q.subtitle}</p>
+                    <p className="text-xs font-semibold truncate">{quarter.season} · {quarter.quarter}</p>
+                    <p className="text-xs truncate" style={{ color: selectedQuarter === quarter.id ? quarter.accentColor : undefined, opacity: 0.7 }}>{quarter.subtitle}</p>
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Task title */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Task Title</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Task Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => { setTitle(e.target.value); setError(""); }}
-              placeholder={`e.g., Learn ${q.subtitle.split(" ")[0]} fundamentals`}
+              placeholder={`e.g., Implement Spring Security OAuth2`}
               className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
               style={{
                 background: "rgba(15,18,28,0.8)",
                 border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.07)"}`,
               }}
-              onFocus={(e) => { e.target.style.borderColor = q.accentColor + "60"; e.target.style.boxShadow = `0 0 0 3px ${q.accentColor}12`; }}
-              onBlur={(e) => { e.target.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.07)"; e.target.style.boxShadow = "none"; }}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               autoFocus
             />
             {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
           </div>
 
-          {/* Due date */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Target Due Date</label>
-            <div className="relative">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all"
+                style={{
+                  background: "rgba(15,18,28,0.8)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <option value="JAVA_BACKEND">Java Backend</option>
+                <option value="FRONTEND">Frontend</option>
+                <option value="DATABASE">Database</option>
+                <option value="DEVOPS">DevOps</option>
+                <option value="ENGLISH">English</option>
+                <option value="EXERCISE">Exercise</option>
+                <option value="READING">Reading</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Target Due Date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all appearance-none"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all"
                 style={{
                   background: "rgba(15,18,28,0.8)",
                   border: "1px solid rgba(255,255,255,0.07)",
                   colorScheme: "dark",
                 }}
-                onFocus={(e) => { e.target.style.borderColor = q.accentColor + "60"; e.target.style.boxShadow = `0 0 0 3px ${q.accentColor}12`; }}
-                onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.07)"; e.target.style.boxShadow = "none"; }}
               />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
-            <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all">
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} disabled={isSubmitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all">
               Cancel
             </button>
             <button
               onClick={handleAdd}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+              disabled={isSubmitting}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
               style={{
                 background: `linear-gradient(135deg, ${q.accentColor} 0%, ${q.accentColor}cc 100%)`,
                 boxShadow: `0 4px 20px ${q.accentColor}35`,
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-              Add to {q.season} · {q.quarter}
+              {isSubmitting ? (
+                <span>Salvando…</span>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
+                  Add to {q.season} · {q.quarter}
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1073,14 +1213,11 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         boxShadow: `0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.04)`,
       }}
     >
-      {/* Card top accent bar */}
       <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${quarter.accentColor}, ${quarter.accentColor}40)` }} />
 
-      {/* Card Header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
-            {/* Season icon with glow */}
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
               style={{ background: quarter.glowColor, border: `1px solid ${quarter.accentColor}25` }}
@@ -1097,7 +1234,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                   {quarter.quarter}
                 </span>
               </div>
-              {/* Editable subtitle */}
               {editingSubtitle ? (
                 <input
                   autoFocus
@@ -1120,7 +1256,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
             </div>
           </div>
 
-          {/* Progress ring */}
           <div className="flex flex-col items-center flex-shrink-0">
             <div className="relative w-9 h-9">
               <svg width="36" height="36" viewBox="0 0 36 36" className="rotate-[-90deg]">
@@ -1143,7 +1278,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
           </div>
         </div>
 
-        {/* Editable goal summary */}
         <div className="group/goal">
           {editingGoal ? (
             <textarea
@@ -1170,16 +1304,12 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         </div>
       </div>
 
-      {/* Divider */}
       <div className="mx-5 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
 
-      {/* Macro-tasks list */}
       <div className="px-4 py-3 flex-1 space-y-1 overflow-y-auto" style={{ maxHeight: "260px" }}>
         {quarter.tasks.map((task) => (
           <div key={task.id} className="group/task rounded-xl overflow-hidden">
-            {/* Task row */}
             <div className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/3 transition-all">
-              {/* Checkbox */}
               <button
                 onClick={() => onTaskUpdate(quarter.id, task.id, { completed: !task.completed })}
                 className="flex-shrink-0 w-4 h-4 rounded-md border flex items-center justify-center transition-all"
@@ -1195,7 +1325,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 )}
               </button>
 
-              {/* Task content — inline edit */}
               <div className="flex-1 min-w-0">
                 {editingTaskId === task.id ? (
                   <input
@@ -1214,7 +1343,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 )}
               </div>
 
-              {/* Inline date picker */}
               <input
                 type="date"
                 value={task.dueDate}
@@ -1224,7 +1352,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 title="Click to change due date"
               />
 
-              {/* Hover actions */}
               <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-all flex-shrink-0">
                 <button
                   onClick={() => onTaskUpdate(quarter.id, task.id, { expanded: !task.expanded })}
@@ -1250,7 +1377,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
               </div>
             </div>
 
-            {/* Expanded notes */}
             {task.expanded && (
               <div className="mx-2 mb-1 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
                 <textarea
@@ -1273,7 +1399,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         )}
       </div>
 
-      {/* Card Footer — Add task */}
       <div className="px-4 pb-4 pt-2">
         <div className="h-px mb-3" style={{ background: "rgba(255,255,255,0.04)" }} />
         <button
@@ -1282,16 +1407,6 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
           style={{
             borderColor: quarter.accentColor + "30",
             color: quarter.accentColor + "99",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = quarter.accentColor + "70";
-            (e.currentTarget as HTMLElement).style.color = quarter.accentColor;
-            (e.currentTarget as HTMLElement).style.background = quarter.accentColor + "08";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = quarter.accentColor + "30";
-            (e.currentTarget as HTMLElement).style.color = quarter.accentColor + "99";
-            (e.currentTarget as HTMLElement).style.background = "transparent";
           }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1319,13 +1434,16 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
 
   const formatDate = (d: string) => {
     if (!d) return "";
-    const date = new Date(d + "T00:00:00");
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    try {
+      const date = new Date(d + "T00:00:00");
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch {
+      return d;
+    }
   };
 
   return (
     <div className="space-y-4">
-      {/* Overall progress */}
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Yearly Progress</h3>
         <div className="flex items-center gap-3 mb-4">
@@ -1374,7 +1492,6 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
         </div>
       </div>
 
-      {/* Upcoming milestones */}
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Upcoming Milestones</h3>
         <div className="space-y-3">
@@ -1389,16 +1506,18 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
               </div>
             </div>
           ))}
+          {upcoming.length === 0 && (
+            <p className="text-xs text-slate-600">All planned tasks completed!</p>
+          )}
         </div>
       </div>
 
-      {/* XP Projection */}
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">XP Projection</h3>
         <div className="space-y-2.5">
           {quarters.map(q => {
-            const potential = q.tasks.length * 80;
-            const earned = q.tasks.filter(t => t.completed).length * 80;
+            const potential = q.tasks.reduce((sum, t) => sum + (t.xpReward || 80), 0);
+            const earned = q.tasks.filter(t => t.completed).reduce((sum, t) => sum + (t.xpReward || 80), 0);
             return (
               <div key={q.id} className="flex items-center justify-between">
                 <span className="text-xs text-slate-500">{q.icon} {q.quarter}</span>
@@ -1409,7 +1528,9 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
         </div>
         <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
           <span className="text-xs text-slate-500">Total potential</span>
-          <span className="text-sm font-bold font-mono text-indigo-400">+{quarters.reduce((acc, q) => acc + q.tasks.length * 80, 0)} XP</span>
+          <span className="text-sm font-bold font-mono text-indigo-400">
+            +{quarters.reduce((acc, q) => acc + q.tasks.reduce((sum, t) => sum + (t.xpReward || 80), 0), 0)} XP
+          </span>
         </div>
       </div>
     </div>
@@ -1421,32 +1542,281 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>("Dashboard");
   const [logTask, setLogTask] = useState<Task | null>(null);
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [quarters, setQuarters] = useState<RoadmapQuarter[]>(INITIAL_QUARTERS);
+  const [userProfile, setUserProfile] = useState<UserProfileResponse>(INITIAL_USER);
+  const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
   const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number }>({ open: false });
+  const [toasts, setToasts] = useState<NotificationToast[]>([]);
 
+  const addToast = (toast: Omit<NotificationToast, "id">) => {
+    const id = Date.now();
+    setToasts(curr => [...curr, { ...toast, id }]);
+    setTimeout(() => {
+      setToasts(curr => curr.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  // Carrega Perfil do Usuário e Roadmap por Estação da API REST
+  const loadInitialData = useCallback(async () => {
+    try {
+      // 1. Carrega Perfil do Usuário (/users/1)
+      const user = await getUserProfile(1);
+      if (user) {
+        setUserProfile(user);
+        setIsApiConnected(true);
+      }
+    } catch (e) {
+      console.info("[StudyOS] Backend Spring Boot offline ou inicializando. Usando dados locais.");
+      setIsApiConnected(false);
+    }
+
+    // 2. Busca tarefas por estação (/tasks/user/1?season=...)
+    try {
+      const seasons: Season[] = ["SUMMER", "AUTUMN", "WINTER", "SPRING"];
+      const seasonResults = await Promise.allSettled(
+        seasons.map(s => getTasksBySeason(s, 1))
+      );
+
+      setQuarters(prevQuarters =>
+        prevQuarters.map((q, idx) => {
+          const res = seasonResults[idx];
+          if (res.status === "fulfilled" && Array.isArray(res.value) && res.value.length > 0) {
+            const apiTasks: MacroTask[] = res.value.map(t => ({
+              id: t.id,
+              title: t.title,
+              dueDate: t.targetDate || "2026-12-31",
+              completed: t.status === "COMPLETED",
+              expanded: false,
+              notes: t.description || "",
+              category: t.category,
+              plannedMinutes: t.plannedDurationMinutes,
+              actualMinutes: t.actualDurationMinutes || 0,
+              xpReward: t.xpReward || 80,
+            }));
+            return { ...q, tasks: apiTasks };
+          }
+          return q;
+        })
+      );
+    } catch (e) {
+      console.warn("[StudyOS] Erro ao sincronizar estações do Roadmap:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+    const interval = setInterval(() => {
+      checkApiHealth().then(online => setIsApiConnected(online));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadInitialData]);
+
+  // Atualizar Quarter localmente
   const updateQuarter = (id: number, patch: Partial<RoadmapQuarter>) =>
     setQuarters(qs => qs.map(q => q.id === id ? { ...q, ...patch } : q));
 
-  const updateTask = (qId: number, tId: number, patch: Partial<MacroTask>) =>
+  // Atualizar Tarefa / Toggle Completed
+  const handleTaskUpdate = async (qId: number, tId: number, patch: Partial<MacroTask>) => {
     setQuarters(qs => qs.map(q => q.id === qId ? {
       ...q, tasks: q.tasks.map(t => t.id === tId ? { ...t, ...patch } : t)
     } : q));
 
-  const deleteTask = (qId: number, tId: number) =>
-    setQuarters(qs => qs.map(q => q.id === qId ? { ...q, tasks: q.tasks.filter(t => t.id !== tId) } : q));
-
-  const addTask = (quarterId: number, title: string, dueDate: string) => {
-    const newTask: MacroTask = { id: Date.now(), title, dueDate, completed: false, expanded: false, notes: "" };
-    setQuarters(qs => qs.map(q => q.id === quarterId ? { ...q, tasks: [...q.tasks, newTask] } : q));
+    if (patch.completed !== undefined) {
+      const newStatus = patch.completed ? "COMPLETED" : "PENDING";
+      try {
+        await updateTaskStatus(tId, newStatus);
+        // Atualiza usuário e XP após completar
+        if (patch.completed) {
+          const updatedUser = await getUserProfile(1).catch(() => null);
+          if (updatedUser) {
+            setUserProfile(updatedUser);
+            addToast({
+              type: "xp",
+              title: "Task Concluída!",
+              message: `Status atualizado no backend. XP sincronizado!`,
+              xp: 80,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Update task status via API failed, keeping local state:", err);
+      }
+    }
   };
 
-  const completedCount = TASKS.filter((t) => t.status === "completed").length;
-  const totalCount = TASKS.length;
+  // Excluir Tarefa (/tasks/{id})
+  const handleTaskDelete = async (qId: number, tId: number) => {
+    setQuarters(qs => qs.map(q => q.id === qId ? { ...q, tasks: q.tasks.filter(t => t.id !== tId) } : q));
+    setTasks(ts => ts.filter(t => t.id !== tId));
 
+    try {
+      await deleteTask(tId);
+      addToast({
+        type: "info",
+        title: "Tarefa Excluída",
+        message: `A tarefa #${tId} foi removida da base de dados.`,
+      });
+    } catch (err) {
+      console.warn("Delete task via API failed:", err);
+    }
+  };
+
+  // Criar Tarefa (/tasks)
+  const handleAddTask = async (quarterId: number, title: string, dueDate: string, category: string = "JAVA_BACKEND", plannedMinutes: number = 60) => {
+    const quarter = quarters.find(q => q.id === quarterId) || quarters[0];
+    const xpReward = Math.max(50, Math.round(plannedMinutes * 1.2));
+
+    try {
+      const createdTask = await createTask({
+        userId: 1,
+        title,
+        season: quarter.seasonKey,
+        category,
+        plannedDurationMinutes: plannedMinutes,
+        targetDate: dueDate,
+        xpReward,
+      });
+
+      const newTask: MacroTask = {
+        id: createdTask.id || Date.now(),
+        title: createdTask.title || title,
+        dueDate: createdTask.targetDate || dueDate,
+        completed: createdTask.status === "COMPLETED",
+        expanded: false,
+        notes: createdTask.description || "",
+        category: createdTask.category,
+        plannedMinutes: createdTask.plannedDurationMinutes,
+        xpReward: createdTask.xpReward,
+      };
+
+      setQuarters(qs => qs.map(q => q.id === quarterId ? { ...q, tasks: [...q.tasks, newTask] } : q));
+
+      // Sincroniza também no dashboard se for de hoje/recente
+      const dashboardTask: Task = {
+        id: newTask.id,
+        category: (createdTask.category || category).replace(/_/g, " "),
+        categoryColor: mapCategoryColor(createdTask.category || category),
+        title: newTask.title,
+        subtitle: `Roadmap · ${quarter.season} ${quarter.quarter}`,
+        plannedTime: formatMinutesToHm(plannedMinutes),
+        actualTime: null,
+        status: "pending",
+        timeStart: "10:00",
+        timeEnd: "11:30",
+        xpReward,
+      };
+      setTasks(ts => [...ts, dashboardTask]);
+
+      addToast({
+        type: "success",
+        title: "Tarefa Criada com Sucesso!",
+        message: `"${title}" adicionada à estação ${quarter.season}.`,
+      });
+    } catch (err: any) {
+      console.warn("Create task via API failed, creating locally:", err);
+      const newTask: MacroTask = { id: Date.now(), title, dueDate, completed: false, expanded: false, notes: "", category, plannedMinutes, xpReward };
+      setQuarters(qs => qs.map(q => q.id === quarterId ? { ...q, tasks: [...q.tasks, newTask] } : q));
+    }
+  };
+
+  // Callback após registrar tempo e receber XP atualizado do Spring Boot
+  const handleTimeLogged = (
+    taskId: number,
+    actualMins: number,
+    status: string,
+    notes: string,
+    updatedUser: UserProfileResponse | null
+  ) => {
+    // 1. Atualiza estado da tarefa no Dashboard
+    setTasks(ts =>
+      ts.map(t => {
+        if (t.id === taskId) {
+          const newStatus: TaskStatus = status === "complete" ? "completed" : status === "partial" ? "partial" : "pending";
+          return {
+            ...t,
+            actualTime: formatMinutesToHm(actualMins),
+            status: newStatus,
+          };
+        }
+        return t;
+      })
+    );
+
+    // 2. Atualiza estado no Roadmap se a tarefa existir lá
+    setQuarters(qs =>
+      qs.map(q => ({
+        ...q,
+        tasks: q.tasks.map(t => {
+          if (t.id === taskId) {
+            return {
+              ...t,
+              completed: status === "complete",
+              actualMinutes: (t.actualMinutes || 0) + actualMins,
+              notes: notes ? `${t.notes ? t.notes + " | " : ""}${notes}` : t.notes,
+            };
+          }
+          return t;
+        }),
+      }))
+    );
+
+    // 3. Atualiza dados de XP e Nível do Usuário no Header
+    if (updatedUser) {
+      setUserProfile(updatedUser);
+    } else {
+      // Fallback otimista
+      const xpMultiplier = status === "complete" ? 1 : status === "partial" ? 0.6 : 0.25;
+      const targetTask = tasks.find(t => t.id === taskId);
+      const xpEarned = Math.round((targetTask?.xpReward || 80) * xpMultiplier);
+      setUserProfile(prev => {
+        const nextXp = prev.currentXp + xpEarned;
+        const nextLevel = Math.floor(nextXp / 500) + 1;
+        return { ...prev, currentXp: nextXp, level: nextLevel };
+      });
+    }
+
+    addToast({
+      type: "xp",
+      title: "Tempo Registrado com Sucesso!",
+      message: `${actualMins} minutos computados. Ganho de XP creditado.`,
+    });
+  };
+
+  const completedCount = tasks.filter((t) => t.status === "completed").length;
+  const totalCount = tasks.length;
   const todayDate = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const currentLevel = userProfile.level;
+  const currentXpInLevel = userProfile.currentXp % 500;
+  const maxXpInLevel = 500;
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-xl animate-fade-in"
+            style={{
+              background: "rgba(18, 21, 31, 0.95)",
+              backdropFilter: "blur(12px)",
+              borderColor: toast.type === "xp" ? "rgba(99,102,241,0.5)" : toast.type === "success" ? "rgba(16,185,129,0.5)" : "rgba(255,255,255,0.1)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+            }}
+          >
+            <span className="text-lg">
+              {toast.type === "xp" ? "⚡" : toast.type === "success" ? "✅" : "ℹ️"}
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-slate-100">{toast.title}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{toast.message}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Header */}
       <header
@@ -1456,7 +1826,7 @@ export default function App() {
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-600/30">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
@@ -1481,26 +1851,42 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Right: User info */}
+        {/* Right: User info & API status */}
         <div className="flex items-center gap-4">
+          {/* API Connection Indicator */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border"
+            style={{
+              background: isApiConnected ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
+              borderColor: isApiConnected ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)",
+              color: isApiConnected ? "#34d399" : "#fbbf24",
+            }}
+            title={isApiConnected ? "Conectado ao Spring Boot REST (http://localhost:8080/api/v1)" : "Modo Offline (Backend Spring Boot não detectado em localhost:8080)"}
+          >
+            <span className={`w-2 h-2 rounded-full ${isApiConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+            <span>{isApiConnected ? "API Spring Boot" : "Offline Mode"}</span>
+          </div>
+
           {/* Streak */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30">
             <span className="text-sm">🔥</span>
-            <span className="text-xs font-semibold text-amber-400">12 Days</span>
+            <span className="text-xs font-semibold text-amber-400">{userProfile.streakDays} Days</span>
           </div>
 
           {/* XP Bar */}
           <div className="flex flex-col items-end gap-0.5">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-indigo-400">Level 5 · Apprentice</span>
+              <span className="text-xs font-medium text-indigo-400">
+                Level {currentLevel} · {getLevelTitle(currentLevel)}
+              </span>
             </div>
-            <XPBar current={750} max={1000} />
+            <XPBar current={currentXpInLevel} max={maxXpInLevel} />
           </div>
 
           {/* Avatar */}
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
-              AK
+          <div className="relative" title={`${userProfile.name} (${userProfile.email})`}>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20">
+              {userProfile.name ? userProfile.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "AK"}
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900" />
           </div>
@@ -1514,7 +1900,6 @@ export default function App() {
           <div className="grid grid-cols-3 gap-6">
             {/* Left Column — Timeline */}
             <div className="col-span-2 space-y-4">
-              {/* Header row */}
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-semibold text-slate-100">Today's Schedule</h1>
@@ -1525,9 +1910,9 @@ export default function App() {
                     <p className="text-xs text-slate-500">Completed</p>
                     <p className="text-sm font-semibold text-slate-200">{completedCount}/{totalCount} tasks</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#6366F1 ${(completedCount/totalCount)*360}deg, #1e293b 0)` }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#6366F1 ${totalCount > 0 ? (completedCount/totalCount)*360 : 0}deg, #1e293b 0)` }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#0c0e15" }}>
-                      <span className="text-xs font-bold text-indigo-400">{Math.round((completedCount/totalCount)*100)}%</span>
+                      <span className="text-xs font-bold text-indigo-400">{totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0}%</span>
                     </div>
                   </div>
                 </div>
@@ -1535,7 +1920,7 @@ export default function App() {
 
               {/* Task Cards */}
               <div className="space-y-3">
-                {TASKS.map((task) => (
+                {tasks.map((task) => (
                   <TaskCard key={task.id} task={task} onLog={setLogTask} />
                 ))}
               </div>
@@ -1543,13 +1928,12 @@ export default function App() {
 
             {/* Right Column — Stats sidebar */}
             <div className="space-y-4">
-              {/* Daily Progress */}
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Daily Progress</h3>
                 <div className="space-y-3">
                   {[
                     { label: "Study Time", value: "4h 35m", target: "6h 00m", pct: 76, color: "#6366F1" },
-                    { label: "Tasks Done", value: "2 / 5", target: "5 tasks", pct: 40, color: "#10B981" },
+                    { label: "Tasks Done", value: `${completedCount} / ${totalCount}`, target: `${totalCount} tasks`, pct: totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0, color: "#10B981" },
                     { label: "Focus Score", value: "87 / 100", target: "100", pct: 87, color: "#F97316" },
                   ].map((item) => (
                     <div key={item.label}>
@@ -1572,7 +1956,7 @@ export default function App() {
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Up Next</h3>
                 <div className="space-y-3">
-                  {TASKS.filter(t => t.status === "pending").slice(0, 3).map((t) => (
+                  {tasks.filter(t => t.status === "pending" || t.status === "in-progress").slice(0, 3).map((t) => (
                     <div key={t.id} className="flex items-start gap-3">
                       <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: t.categoryColor }} />
                       <div className="min-w-0">
@@ -1604,7 +1988,7 @@ export default function App() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
                   <span className="text-xs text-slate-500">Total today</span>
-                  <span className="text-sm font-bold font-mono text-indigo-400">+250 XP</span>
+                  <span className="text-sm font-bold font-mono text-indigo-400">+{tasks.filter(t => t.status === "completed").reduce((acc, t) => acc + t.xpReward, 250)} XP</span>
                 </div>
               </div>
             </div>
@@ -1643,24 +2027,19 @@ export default function App() {
 
         {activeTab === "Roadmap" && (
           <div className="grid grid-cols-3 gap-6">
-            {/* Left: 2×2 seasonal grid */}
             <div className="col-span-2 space-y-4">
-              {/* Roadmap header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-semibold text-slate-100">Yearly Roadmap</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">4 seasonal quarters · click any field to edit inline</p>
+                  <p className="text-xs text-slate-500 mt-0.5">4 seasonal quarters · sincronizado com a API Spring Boot</p>
                 </div>
-                {/* Global Add Task CTA */}
                 <button
                   onClick={() => setAddTaskModal({ open: true })}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25"
                   style={{
                     background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
                     boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(99,102,241,0.5)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(99,102,241,0.35)"; }}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M12 5v14M5 12h14" />
@@ -1669,36 +2048,42 @@ export default function App() {
                 </button>
               </div>
 
-              {/* 2×2 Quarter grid */}
               <div className="grid grid-cols-2 gap-4">
                 {quarters.map(q => (
                   <QuarterCard
                     key={q.id}
                     quarter={q}
                     onUpdate={updateQuarter}
-                    onTaskUpdate={updateTask}
-                    onTaskDelete={deleteTask}
+                    onTaskUpdate={handleTaskUpdate}
+                    onTaskDelete={handleTaskDelete}
                     onAddTask={(qId) => setAddTaskModal({ open: true, defaultQuarterId: qId })}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Right: Roadmap sidebar */}
             <RoadmapSidebar quarters={quarters} />
           </div>
         )}
       </main>
 
       {/* Time Log Modal */}
-      {logTask && <TimeLogModal task={logTask} onClose={() => setLogTask(null)} />}
+      {logTask && (
+        <TimeLogModal
+          task={logTask}
+          userXp={userProfile.currentXp}
+          userLevel={userProfile.level}
+          onClose={() => setLogTask(null)}
+          onTimeLogged={handleTimeLogged}
+        />
+      )}
 
       {/* Add Task Modal */}
       {addTaskModal.open && (
         <AddTaskModal
           quarters={quarters}
           defaultQuarterId={addTaskModal.defaultQuarterId}
-          onAdd={addTask}
+          onAdd={handleAddTask}
           onClose={() => setAddTaskModal({ open: false })}
         />
       )}

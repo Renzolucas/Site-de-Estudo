@@ -18,3 +18,8 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+
+# Environment
+.env
+.env.local
+.env.*.local
