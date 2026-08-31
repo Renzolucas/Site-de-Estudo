@@ -158,7 +158,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">🏆</span>
-            <h1 className="text-lg font-bold text-slate-100 tracking-tight">Leaderboard Global</h1>
+            <h1 className="heading-fluid-title font-bold text-slate-100 tracking-tight">Leaderboard Global</h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-mono font-medium border border-indigo-500/20">
               Temporada 2026
             </span>
@@ -168,7 +168,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Card Resumo do Usuário Logado */}
           {currentUserRank && currentUserData && (
             <div className="flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 shadow-md shadow-indigo-950/40">
@@ -188,9 +188,9 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
           <button
             onClick={fetchLeaderboardData}
             title="Atualizar dados do Leaderboard"
-            className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-all cursor-pointer"
+            className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:border-slate-700 flex items-center justify-center transition-all cursor-pointer"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
               <path d="M3 3v5h5" />
               <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
@@ -367,15 +367,15 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
         </div>
 
         {restOfUsers.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b border-slate-800/50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-950/40">
-                  <th className="py-3 px-6 w-16 text-center">Posição</th>
-                  <th className="py-3 px-6">Estudante</th>
-                  <th className="py-3 px-6">Nível</th>
-                  <th className="py-3 px-6 text-center">Sequência</th>
-                  <th className="py-3 px-6 text-right">XP Total</th>
+                  <th className="py-3 px-3 sm:px-6 w-14 sm:w-16 text-center">Posição</th>
+                  <th className="py-3 px-3 sm:px-6">Estudante</th>
+                  <th className="py-3 px-3 sm:px-6">Nível</th>
+                  <th className="py-3 px-3 sm:px-6 text-center">Sequência</th>
+                  <th className="py-3 px-3 sm:px-6 text-right">XP Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-xs">
@@ -393,15 +393,15 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
                       }`}
                     >
                       {/* Posição */}
-                      <td className="py-3.5 px-6 text-center font-mono font-bold text-slate-400">
+                      <td className="py-3.5 px-3 sm:px-6 text-center font-mono font-bold text-slate-400">
                         #{rank}
                       </td>
 
                       {/* Nome + Avatar */}
-                      <td className="py-3.5 px-6">
-                        <div className="flex items-center gap-3">
+                      <td className="py-3.5 px-3 sm:px-6">
+                        <div className="flex items-center gap-2.5 sm:gap-3">
                           <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0 ${
                               isCurrent
                                 ? "bg-indigo-600 text-white shadow-indigo-600/30 ring-2 ring-indigo-400"
                                 : "bg-slate-800 text-slate-300"
@@ -409,38 +409,38 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
                           >
                             {getInitials(u.name)}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className={`font-semibold ${isCurrent ? "text-white" : "text-slate-100"}`}>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <span className={`font-semibold truncate max-w-[120px] sm:max-w-[180px] ${isCurrent ? "text-white" : "text-slate-100"}`}>
                                 {u.name}
                               </span>
                               {isCurrent && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30">
+                                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30 flex-shrink-0">
                                   Você
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-slate-500">{getLevelTitle(u.level || 1)}</span>
+                            <span className="text-[11px] text-slate-500 block truncate">{getLevelTitle(u.level || 1)}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Nível */}
-                      <td className="py-3.5 px-6">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/60">
+                      <td className="py-3.5 px-3 sm:px-6">
+                        <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/60 whitespace-nowrap">
                           Lvl {u.level || 1}
                         </span>
                       </td>
 
                       {/* Streak */}
-                      <td className="py-3.5 px-6 text-center">
+                      <td className="py-3.5 px-3 sm:px-6 text-center whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-950/30 text-amber-400 text-xs font-semibold border border-amber-900/30">
                           🔥 {u.streakDays || 0}d
                         </span>
                       </td>
 
                       {/* XP Total */}
-                      <td className="py-3.5 px-6 text-right font-mono font-bold text-indigo-400 text-sm">
+                      <td className="py-3.5 px-3 sm:px-6 text-right font-mono font-bold text-indigo-400 text-sm whitespace-nowrap">
                         {u.currentXp?.toLocaleString() || 0} XP
                       </td>
                     </tr>

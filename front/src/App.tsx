@@ -450,12 +450,12 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
       style={{ background: "rgba(6,8,16,0.88)", backdropFilter: "blur(8px)" }}
       onClick={(e) => e.target === e.currentTarget && phase === "idle" && onClose()}
     >
       <div
-        className="w-full max-w-[460px] rounded-2xl border shadow-2xl overflow-hidden"
+        className="w-full max-w-[480px] max-h-[92vh] flex flex-col rounded-2xl sm:rounded-3xl border shadow-2xl overflow-hidden"
         style={{
           background: "linear-gradient(160deg, #161923 0%, #111520 100%)",
           borderColor: "rgba(99,102,241,0.18)",
@@ -463,15 +463,15 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
         }}
       >
         {/* Header */}
-        <div className="relative px-6 pt-6 pb-5">
+        <div className="relative px-5 sm:px-6 pt-5 sm:pt-6 pb-4 sm:pb-5 flex-shrink-0">
           <div
             className="absolute inset-x-0 top-0 h-px"
             style={{ background: `linear-gradient(90deg, transparent, ${task.categoryColor}60, transparent)` }}
           />
 
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
                 <span
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
                   style={{ background: task.categoryColor + "20", color: task.categoryColor }}
@@ -484,15 +484,15 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                 </span>
                 <span className="text-xs text-slate-600 font-mono">{task.timeStart}–{task.timeEnd}</span>
               </div>
-              <h3 className="text-base font-semibold text-slate-100 leading-snug">{task.title}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{task.subtitle}</p>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-100 leading-snug truncate">{task.title}</h3>
+              <p className="text-xs text-slate-500 mt-0.5 truncate">{task.subtitle}</p>
             </div>
 
             <button
               onClick={onClose}
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all"
+              className="flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-all cursor-pointer"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
@@ -500,14 +500,14 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
         </div>
 
         <div
-          className="mx-6 h-px"
+          className="mx-5 sm:mx-6 h-px flex-shrink-0"
           style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)" }}
         />
 
-        <div className="px-6 py-5 space-y-5 overflow-y-auto max-h-[calc(100vh-160px)]">
+        <div className="px-5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
           {/* Duration Comparison */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Duration</label>
               {hasActual && (
                 <span className={`text-xs font-mono font-medium px-2 py-0.5 rounded-full ${
@@ -520,7 +520,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
                 <p className="text-xs text-slate-600 mb-2 flex items-center gap-1.5">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
@@ -539,28 +539,40 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   </svg>
                   Actual
                 </p>
-                <div className="flex items-end gap-1">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <button onClick={() => setHours(Math.min(23, hours + 1))}
-                      className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▲</button>
-                    <span className="font-mono text-xl font-semibold text-slate-100 w-7 text-center">
+                <div className="flex items-center justify-around sm:justify-start gap-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setHours(Math.min(23, hours + 1))}
+                      className="min-w-[36px] min-h-[32px] sm:min-w-[32px] sm:min-h-[28px] flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-xs transition-all cursor-pointer"
+                    >▲</button>
+                    <span className="font-mono text-xl font-semibold text-slate-100 w-8 text-center">
                       {String(hours).padStart(2, "0")}
                     </span>
-                    <button onClick={() => setHours(Math.max(0, hours - 1))}
-                      className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▼</button>
+                    <button
+                      type="button"
+                      onClick={() => setHours(Math.max(0, hours - 1))}
+                      className="min-w-[36px] min-h-[32px] sm:min-w-[32px] sm:min-h-[28px] flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-xs transition-all cursor-pointer"
+                    >▼</button>
                   </div>
-                  <span className="font-mono text-lg text-slate-500 mb-0.5">h</span>
-                  <div className="w-2" />
-                  <div className="flex flex-col items-center gap-0.5">
-                    <button onClick={() => setMinutes(Math.min(55, minutes + 5))}
-                      className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▲</button>
-                    <span className="font-mono text-xl font-semibold text-slate-100 w-7 text-center">
+                  <span className="font-mono text-base text-slate-500">h</span>
+                  <div className="w-1" />
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setMinutes(Math.min(55, minutes + 5))}
+                      className="min-w-[36px] min-h-[32px] sm:min-w-[32px] sm:min-h-[28px] flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-xs transition-all cursor-pointer"
+                    >▲</button>
+                    <span className="font-mono text-xl font-semibold text-slate-100 w-8 text-center">
                       {String(minutes).padStart(2, "0")}
                     </span>
-                    <button onClick={() => setMinutes(Math.max(0, minutes - 5))}
-                      className="text-slate-600 hover:text-indigo-400 text-xs transition-colors px-1">▼</button>
+                    <button
+                      type="button"
+                      onClick={() => setMinutes(Math.max(0, minutes - 5))}
+                      className="min-w-[36px] min-h-[32px] sm:min-w-[32px] sm:min-h-[28px] flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-xs transition-all cursor-pointer"
+                    >▼</button>
                   </div>
-                  <span className="font-mono text-lg text-slate-500 mb-0.5">m</span>
+                  <span className="font-mono text-base text-slate-500">m</span>
                 </div>
               </div>
             </div>
@@ -591,10 +603,10 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
 
           {/* Completion Status */}
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">
               Completion Status
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {statusOptions.map((opt) => {
                 const isActive = completionStatus === opt.key;
                 return (
@@ -602,15 +614,17 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                     key={opt.key}
                     type="button"
                     onClick={() => setCompletionStatus(opt.key)}
-                    className={`flex flex-col items-center gap-2 px-2 py-3 rounded-xl border text-xs font-medium transition-all ${
+                    className={`min-h-[44px] flex sm:flex-col items-center sm:justify-center gap-2 sm:gap-1.5 px-3 py-2.5 sm:py-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                       isActive ? opt.active : `${opt.inactive} hover:border-slate-600 hover:text-slate-400`
                     }`}
                   >
                     <span className={isActive ? "" : "text-slate-600"}>{opt.icon}</span>
-                    <span className="font-semibold">{opt.label}</span>
-                    <span className={`text-center leading-tight ${isActive ? "opacity-70" : "text-slate-700"}`} style={{ fontSize: "10px" }}>
-                      {opt.sub}
-                    </span>
+                    <div className="flex flex-col items-start sm:items-center">
+                      <span className="font-semibold">{opt.label}</span>
+                      <span className={`text-left sm:text-center leading-tight ${isActive ? "opacity-70" : "text-slate-700"}`} style={{ fontSize: "10px" }}>
+                        {opt.sub}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
@@ -704,7 +718,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
         </div>
 
         {/* Footer / Save */}
-        <div className="px-6 pb-6 pt-2">
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-2 flex-shrink-0">
           <div
             className="h-px mb-4"
             style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)" }}
@@ -713,15 +727,15 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
             <button
               onClick={onClose}
               type="button"
-              className="px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all"
+              className="min-h-[44px] px-4 py-2.5 sm:py-3 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               onClick={handleSave}
               disabled={phase !== "idle"}
               type="button"
-              className={`flex-1 relative flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all overflow-hidden ${
+              className={`flex-1 min-h-[44px] relative flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl font-semibold text-sm transition-all overflow-hidden cursor-pointer ${
                 phase === "done"
                   ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
                   : phase === "saving"
@@ -809,8 +823,8 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-xs">
+        <div className="mt-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
@@ -835,9 +849,9 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
           {task.status !== "completed" && (
             <button
               onClick={() => onLog(task)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700/60 hover:border-indigo-500 transition-all cursor-pointer"
+              className="min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700/60 hover:border-indigo-500 transition-all cursor-pointer shadow-sm ml-auto sm:ml-0"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
               </svg>
               Log Time
@@ -988,32 +1002,32 @@ const PerformanceView = ({ user, tasks, timeLogs, userStats }: PerformanceViewPr
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4">
             <p className="text-xs text-slate-500 leading-relaxed">{s.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            <p className={`text-xl sm:text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
             <p className="text-xs text-slate-600 mt-1">{s.sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-sm font-semibold text-slate-200 mb-1">Horas Semanais de Estudo</h3>
+            <h3 className="text-sm font-semibold text-slate-200 mb-0.5">Horas Semanais de Estudo</h3>
             <p className="text-xs text-slate-500">Comparativo: Horas Planejadas vs Horas Executadas por dia</p>
           </div>
           {totalHoursWeekly === 0 && (
-            <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/60 text-slate-500 border border-slate-700/40">
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/60 text-slate-500 border border-slate-700/40 self-start sm:self-auto">
               Sem sessões registradas nesta semana
             </span>
           )}
         </div>
 
-        <div className="flex items-end gap-3 h-40">
+        <div className="flex items-end gap-1.5 sm:gap-3 h-36 sm:h-40 overflow-x-auto pb-1">
           {weekData.map((d) => (
-            <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
+            <div key={d.day} className="flex-1 min-w-[32px] flex flex-col items-center gap-1">
               <div className="w-full flex items-end justify-center gap-1" style={{ height: "120px" }}>
                 <div
                   className="flex-1 rounded-t-md bg-slate-700/50 transition-all"
@@ -1105,41 +1119,41 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
       style={{ background: "rgba(6,8,16,0.9)", backdropFilter: "blur(10px)" }}
       onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
     >
       <div
-        className="w-full max-w-[440px] rounded-2xl border shadow-2xl overflow-hidden"
+        className="w-full max-w-[480px] max-h-[92vh] flex flex-col rounded-2xl sm:rounded-3xl border shadow-2xl overflow-hidden"
         style={{
           background: "linear-gradient(160deg, #161923 0%, #111520 100%)",
           borderColor: "rgba(99,102,241,0.2)",
           boxShadow: "0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.06)",
         }}
       >
-        <div className="relative px-6 pt-6 pb-5">
+        <div className="relative px-5 sm:px-6 pt-5 sm:pt-6 pb-4 sm:pb-5 flex-shrink-0">
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent)" }} />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-slate-100">Criar Nova Tarefa</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-100">Criar Nova Tarefa</h3>
               <p className="text-xs text-slate-500 mt-0.5">Sincroniza diretamente com o banco de dados via Spring Boot</p>
             </div>
-            <button onClick={onClose} disabled={isSubmitting} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all cursor-pointer">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <button onClick={onClose} disabled={isSubmitting} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-all cursor-pointer">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
           </div>
         </div>
 
-        <div className="px-6 pb-6 space-y-4">
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Estação do Roadmap</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {quarters.map((quarter) => (
                 <button
                   key={quarter.id}
                   type="button"
                   onClick={() => setSelectedQuarter(quarter.id)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  className={`min-h-[44px] flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                     selectedQuarter === quarter.id
                       ? "border-opacity-60 text-slate-100"
                       : "border-slate-700/40 text-slate-500 hover:border-slate-600 hover:text-slate-400"
@@ -1166,7 +1180,7 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
               value={title}
               onChange={(e) => { setTitle(e.target.value); setError(""); }}
               placeholder="Ex: Arquitetura de Microserviços Spring Cloud"
-              className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
+              className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
               style={{
                 background: "rgba(15,18,28,0.8)",
                 border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.07)"}`,
@@ -1177,13 +1191,13 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
             {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Categoria</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
                 style={{
                   background: "rgba(15,18,28,0.8)",
                   border: "1px solid rgba(255,255,255,0.07)",
@@ -1206,7 +1220,7 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
                 style={{
                   background: "rgba(15,18,28,0.8)",
                   border: "1px solid rgba(255,255,255,0.07)",
@@ -1217,13 +1231,13 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} disabled={isSubmitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer">
+            <button onClick={onClose} disabled={isSubmitting} className="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer">
               Cancelar
             </button>
             <button
               onClick={handleAdd}
               disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 cursor-pointer"
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 cursor-pointer"
               style={{
                 background: `linear-gradient(135deg, ${q.accentColor} 0%, ${q.accentColor}cc 100%)`,
                 boxShadow: `0 4px 20px ${q.accentColor}35`,
@@ -1395,14 +1409,14 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
             <div className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/3 transition-all">
               <button
                 onClick={() => onTaskUpdate(quarter.id, task.id, { completed: !task.completed })}
-                className="flex-shrink-0 w-4 h-4 rounded-md border flex items-center justify-center transition-all cursor-pointer"
+                className="flex-shrink-0 w-5 h-5 sm:w-4 sm:h-4 rounded-md border flex items-center justify-center transition-all cursor-pointer"
                 style={{
                   borderColor: task.completed ? quarter.accentColor : "rgba(255,255,255,0.15)",
                   background: task.completed ? quarter.accentColor : "transparent",
                 }}
               >
                 {task.completed && (
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
                     <path d="M20 6 9 17l-5-5" />
                   </svg>
                 )}
@@ -1430,29 +1444,29 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 type="date"
                 value={task.dueDate}
                 onChange={e => onTaskUpdate(quarter.id, task.id, { dueDate: e.target.value })}
-                className="text-xs font-mono flex-shrink-0 bg-transparent border-0 outline-none cursor-pointer transition-colors"
-                style={{ colorScheme: "dark", color: task.completed ? "#475569" : quarter.accentColor + "cc", width: "94px" }}
+                className="text-[11px] sm:text-xs font-mono flex-shrink-0 bg-transparent border-0 outline-none cursor-pointer transition-colors"
+                style={{ colorScheme: "dark", color: task.completed ? "#475569" : quarter.accentColor + "cc", width: "86px" }}
                 title="Clique para alterar a data"
               />
 
-              <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-all flex-shrink-0">
+              <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/task:opacity-100 transition-all flex-shrink-0">
                 <button
                   onClick={() => onTaskUpdate(quarter.id, task.id, { expanded: !task.expanded })}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/60 transition-all cursor-pointer"
+                  className="w-7 h-7 sm:w-6 sm:h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 transition-all cursor-pointer"
                   title="Expandir anotações"
                 >
                   <ChevronIcon open={task.expanded} />
                 </button>
                 <button
                   onClick={() => startEditTask(task)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
+                  className="w-7 h-7 sm:w-6 sm:h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
                   title="Editar tarefa"
                 >
                   <PencilIcon />
                 </button>
                 <button
                   onClick={() => onTaskDelete(quarter.id, task.id)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                  className="w-7 h-7 sm:w-6 sm:h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
                   title="Excluir tarefa"
                 >
                   <TrashIcon />
@@ -1467,7 +1481,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                   onChange={e => onTaskUpdate(quarter.id, task.id, { notes: e.target.value })}
                   placeholder="Adicione anotações, subtarefas ou contexto…"
                   rows={2}
-                  className="w-full text-xs text-slate-500 bg-transparent outline-none resize-none placeholder-slate-700 leading-relaxed"
+                  className="w-full text-xs text-slate-400 bg-transparent outline-none resize-none placeholder-slate-700 leading-relaxed"
                 />
               </div>
             )}
@@ -1487,13 +1501,13 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         <div className="h-px mb-3" style={{ background: "rgba(255,255,255,0.04)" }} />
         <button
           onClick={() => onAddTask(quarter.id)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-all border border-dashed cursor-pointer hover:bg-white/5"
+          className="w-full min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all border border-dashed cursor-pointer hover:bg-white/5"
           style={{
             borderColor: quarter.accentColor + "30",
-            color: quarter.accentColor + "99",
+            color: quarter.accentColor + "cc",
           }}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 5v14M5 12h14" />
           </svg>
           Adicionar Meta
@@ -1736,6 +1750,9 @@ export default function App() {
     const user = getStoredUser();
     const authenticated = isAuthenticated();
 
+    // Verificação imediata do status de conexão com a API
+    checkApiHealth().then(online => setIsApiConnected(online));
+
     if (authenticated && user) {
       setCurrentUser(user);
       setIsAuth(true);
@@ -1762,7 +1779,7 @@ export default function App() {
 
     const interval = setInterval(() => {
       checkApiHealth().then(online => setIsApiConnected(online));
-    }, 30000);
+    }, 15000);
 
     return () => {
       unsubscribe();
@@ -2061,7 +2078,7 @@ export default function App() {
   // Se o usuário NÃO estiver logado: renderiza EXCLUSIVAMENTE a tela AuthPage.
   if (!isAuth || !currentUser) {
     return (
-      <div className="min-h-screen w-full" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div className="min-h-screen min-h-[100dvh] w-full flex flex-col flex-1" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
         {renderToasts()}
         <AuthPage onAuthSuccess={handleAuthSuccess} />
       </div>
@@ -2091,115 +2108,145 @@ export default function App() {
   const completedTasksToday = tasks.filter(t => t.status === "completed");
 
   return (
-    <div className="min-h-full flex flex-col" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="min-h-screen min-h-[100dvh] flex flex-col flex-1 w-full" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {renderToasts()}
 
-      {/* Header Autenticado */}
+      {/* Header Autenticado Responsivo */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-6 h-14 border-b border-slate-800/60"
-        style={{ background: "rgba(12,14,21,0.92)", backdropFilter: "blur(12px)" }}
+        className="sticky top-0 z-40 border-b border-slate-800/60 transition-all"
+        style={{ background: "rgba(12,14,21,0.95)", backdropFilter: "blur(12px)" }}
       >
-        {/* Left: Logo + Nav */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-md shadow-indigo-600/30">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-              </svg>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* Top Bar: Logo, Desktop Navigation & User Controls */}
+          <div className="flex items-center justify-between h-14 gap-2 sm:gap-4">
+            {/* Left: Logo & Desktop Navigation */}
+            <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-md shadow-indigo-600/30">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                  </svg>
+                </div>
+                <span className="text-sm sm:text-base font-bold text-slate-100 tracking-tight">StudyOS</span>
+              </div>
+
+              {/* Desktop Nav Tabs (>= 768px) */}
+              <nav className="hidden md:flex items-center gap-1">
+                {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
+                      activeTab === tab
+                        ? "bg-slate-800 text-slate-100 shadow-sm"
+                        : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+                    }`}
+                  >
+                    {tab === "Leaderboard" ? "Ranking 🏆" : tab}
+                  </button>
+                ))}
+              </nav>
             </div>
-            <span className="text-sm font-semibold text-slate-100 tracking-tight">StudyOS</span>
+
+            {/* Right: User info, XP, & Logout Button */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              {/* API Connection Indicator */}
+              <div
+                className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border transition-all ${
+                  isApiConnected
+                    ? "border-emerald-500/30 bg-emerald-950/30"
+                    : "border-orange-500/30 bg-orange-950/30"
+                }`}
+                title={
+                  isApiConnected
+                    ? "Conectado ao Spring Boot REST (http://localhost:8080/api/v1)"
+                    : "Falha na conexão com o Backend Spring Boot (http://localhost:8080)"
+                }
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    isApiConnected
+                      ? "bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50"
+                      : "bg-orange-500 shadow-sm shadow-orange-500/50"
+                  }`}
+                />
+              </div>
+
+              {/* Streak */}
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30">
+                <span className="text-xs sm:text-sm">🔥</span>
+                <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">{user.streakDays || 0}d</span>
+              </div>
+
+              {/* XP Bar (visible on lg+) */}
+              <div className="hidden lg:flex flex-col items-end gap-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-indigo-400">
+                    Level {currentLevel} · {getLevelTitle(currentLevel)}
+                  </span>
+                </div>
+                <XPBar current={currentXpInLevel} max={maxXpInLevel} />
+              </div>
+
+              {/* User Avatar */}
+              <div
+                className="relative flex items-center gap-2 pl-1.5 sm:pl-2 border-l border-slate-800"
+                title={`${user.name} (${user.email})`}
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20">
+                  {user.name ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "US"}
+                </div>
+                <div className="hidden xl:block text-left">
+                  <p className="text-xs font-semibold text-slate-200 leading-tight truncate max-w-[100px]">{user.name}</p>
+                </div>
+                <div className="absolute top-0 left-7 sm:left-8 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+              </div>
+
+              {/* Botão de Logout ("Sair") */}
+              <button
+                onClick={handleLogout}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/20 bg-red-950/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all text-xs font-medium cursor-pointer"
+                title="Sair da conta e retornar à tela de login"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            </div>
           </div>
 
-          <nav className="flex items-center gap-1">
+          {/* Mobile/Tablet Subnav: Scrollable Tab Pills */}
+          <div className="flex md:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-2 border-t border-slate-800/50">
             {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex-shrink-0 ${
                   activeTab === tab
-                    ? "bg-slate-800 text-slate-100 shadow-sm"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "text-slate-400 hover:text-slate-200 bg-slate-900/60 border border-slate-800/80"
                 }`}
               >
                 {tab === "Leaderboard" ? "Ranking 🏆" : tab}
               </button>
             ))}
-          </nav>
-        </div>
-
-        {/* Right: User info, XP, & Logout Button */}
-        <div className="flex items-center gap-4">
-          {/* API Connection Indicator */}
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border"
-            style={{
-              background: isApiConnected ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
-              borderColor: isApiConnected ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)",
-              color: isApiConnected ? "#34d399" : "#fbbf24",
-            }}
-            title={isApiConnected ? "Conectado ao Spring Boot REST (http://localhost:8080/api/v1)" : "Modo Offline (Backend Spring Boot não detectado em localhost:8080)"}
-          >
-            <span className={`w-2 h-2 rounded-full ${isApiConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-            <span>{isApiConnected ? "API Spring Boot" : "Offline"}</span>
           </div>
-
-          {/* Streak */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30">
-            <span className="text-sm">🔥</span>
-            <span className="text-xs font-semibold text-amber-400">{user.streakDays || 0} Dias</span>
-          </div>
-
-          {/* XP Bar */}
-          <div className="flex flex-col items-end gap-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-indigo-400">
-                Level {currentLevel} · {getLevelTitle(currentLevel)}
-              </span>
-            </div>
-            <XPBar current={currentXpInLevel} max={maxXpInLevel} />
-          </div>
-
-          {/* User Avatar */}
-          <div
-            className="relative flex items-center gap-2 pl-2 border-l border-slate-800"
-            title={`${user.name} (${user.email})`}
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20">
-              {user.name ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "US"}
-            </div>
-            <div className="hidden md:block text-left">
-              <p className="text-xs font-semibold text-slate-200 leading-tight truncate max-w-[120px]">{user.name}</p>
-              <p className="text-[10px] text-slate-500 truncate max-w-[120px]">{user.email}</p>
-            </div>
-            <div className="absolute top-0 left-8 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
-          </div>
-
-          {/* Botão de Logout ("Sair") */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/20 bg-red-950/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all text-xs font-medium cursor-pointer"
-            title="Sair da conta e retornar à tela de login"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span className="hidden sm:inline">Sair</span>
-          </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {activeTab === "Dashboard" && (
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column — Timeline */}
-            <div className="col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="col-span-1 lg:col-span-2 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-lg font-semibold text-slate-100">Today's Schedule</h1>
+                  <h1 className="heading-fluid-title font-semibold text-slate-100">Today's Schedule</h1>
                   <p className="text-xs text-slate-500 mt-0.5 capitalize">{todayDate}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2207,7 +2254,7 @@ export default function App() {
                     <p className="text-xs text-slate-500">Concluídas</p>
                     <p className="text-sm font-semibold text-slate-200">{completedCount}/{totalCount} tarefas</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#6366F1 ${totalCount > 0 ? (completedCount/totalCount)*360 : 0}deg, #1e293b 0)` }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `conic-gradient(#6366F1 ${totalCount > 0 ? (completedCount/totalCount)*360 : 0}deg, #1e293b 0)` }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#0c0e15" }}>
                       <span className="text-xs font-bold text-indigo-400">{totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0}%</span>
                     </div>
@@ -2222,7 +2269,7 @@ export default function App() {
                 ))}
 
                 {tasks.length === 0 && (
-                  <div className="p-10 text-center rounded-2xl border border-slate-800/60 bg-slate-900/30 flex flex-col items-center justify-center">
+                  <div className="p-8 sm:p-10 text-center rounded-2xl border border-slate-800/60 bg-slate-900/30 flex flex-col items-center justify-center">
                     <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl mb-4 text-indigo-400 shadow-inner">
                       🎯
                     </div>
@@ -2232,7 +2279,7 @@ export default function App() {
                     </p>
                     <button
                       onClick={() => setAddTaskModal({ open: true })}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
+                      className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
                       style={{
                         background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
                         boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
@@ -2249,8 +2296,8 @@ export default function App() {
             </div>
 
             {/* Right Column — Stats sidebar */}
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
+            <div className="col-span-1 space-y-4">
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4 sm:p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Progresso Diário</h3>
                 <div className="space-y-3">
                   {[
@@ -2293,7 +2340,7 @@ export default function App() {
               </div>
 
               {/* Up Next */}
-              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4 sm:p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Próximas Tarefas</h3>
                 <div className="space-y-3">
                   {pendingTasks.slice(0, 3).map((t) => (
@@ -2312,7 +2359,7 @@ export default function App() {
               </div>
 
               {/* XP Activity */}
-              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4 sm:p-5">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Atividade de XP Hoje</h3>
                 <div className="space-y-2.5">
                   {completedTasksToday.slice(0, 3).map((t) => (
@@ -2342,7 +2389,7 @@ export default function App() {
         {activeTab === "Performance" && (
           <div>
             <div className="mb-6">
-              <h1 className="text-lg font-semibold text-slate-100">Performance Overview</h1>
+              <h1 className="heading-fluid-title font-semibold text-slate-100">Performance Overview</h1>
               <p className="text-xs text-slate-500 mt-0.5">Histórico e métricas de desempenho calculadas em tempo real</p>
             </div>
             <PerformanceView
@@ -2356,35 +2403,35 @@ export default function App() {
 
         {activeTab === "Badges" && (
           <div>
-            <div className="mb-6 flex items-end justify-between">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
-                <h1 className="text-lg font-semibold text-slate-100">Achievements &amp; Conquistas</h1>
+                <h1 className="heading-fluid-title font-semibold text-slate-100">Achievements &amp; Conquistas</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {earnedBadgesCount} de {dynamicBadges.length} conquistas desbloqueadas
                 </p>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-900/40 bg-amber-950/20">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-900/40 bg-amber-950/20 self-start sm:self-auto">
                 <span className="text-amber-400 text-sm">🏆</span>
                 <span className="text-xs font-medium text-amber-400">{earnedBadgesCount} Desbloqueadas</span>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {dynamicBadges.map((badge) => <BadgeCard key={badge.id} badge={badge} />)}
             </div>
           </div>
         )}
 
         {activeTab === "Roadmap" && (
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="col-span-1 lg:col-span-2 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-lg font-semibold text-slate-100">Yearly Roadmap</h1>
+                  <h1 className="heading-fluid-title font-semibold text-slate-100">Yearly Roadmap</h1>
                   <p className="text-xs text-slate-500 mt-0.5">4 estações sazonais sincronizadas diretamente com o banco de dados</p>
                 </div>
                 <button
                   onClick={() => setAddTaskModal({ open: true })}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
+                  className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer self-start sm:self-auto"
                   style={{
                     background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
                     boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
@@ -2397,7 +2444,7 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {quarters.map(q => (
                   <QuarterCard
                     key={q.id}
@@ -2411,7 +2458,9 @@ export default function App() {
               </div>
             </div>
 
-            <RoadmapSidebar quarters={quarters} />
+            <div className="col-span-1">
+              <RoadmapSidebar quarters={quarters} />
+            </div>
           </div>
         )}
 

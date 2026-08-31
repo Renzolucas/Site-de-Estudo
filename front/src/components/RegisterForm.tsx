@@ -125,7 +125,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
               if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
             }}
             placeholder="Ex: Alexandre Santos"
-            className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
+            className={`w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
               errors.name
                 ? "border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                 : "border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700"
@@ -157,7 +157,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
               if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
             }}
             placeholder="seu.email@exemplo.com"
-            className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
+            className={`w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
               errors.email
                 ? "border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                 : "border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700"
@@ -189,7 +189,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
               if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
             }}
             placeholder="Mínimo 6 caracteres"
-            className={`w-full pl-10 pr-11 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
+            className={`w-full min-h-[44px] pl-10 pr-11 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
               errors.password
                 ? "border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                 : "border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700"
@@ -200,7 +200,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+            className="absolute inset-y-0 right-0 pr-3.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
             title={showPassword ? "Ocultar senha" : "Ver senha"}
           >
             {showPassword ? (
@@ -255,7 +255,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
               if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
             }}
             placeholder="Repita a senha digitada"
-            className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
+            className={`w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border transition-all outline-none ${
               errors.confirmPassword
                 ? "border-red-500/60 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
                 : "border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700"
@@ -272,7 +272,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full relative flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white transition-all overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
+          className="w-full min-h-[44px] relative flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white transition-all overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
           style={{
             background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
             boxShadow: "0 4px 20px rgba(99, 102, 241, 0.35)",
@@ -307,7 +307,7 @@ export default function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFor
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors ml-1 cursor-pointer"
+              className="min-h-[44px] inline-flex items-center text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors ml-1 cursor-pointer"
             >
               Fazer Login
             </button>

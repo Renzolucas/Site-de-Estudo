@@ -73,7 +73,7 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
             value={email}
             onChange={(e) => { setEmail(e.target.value); setError(""); }}
             placeholder="seu.email@exemplo.com"
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700 transition-all outline-none"
+            className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700 transition-all outline-none"
             disabled={isLoading}
             autoComplete="email"
           />
@@ -99,14 +99,14 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(""); }}
             placeholder="Sua senha de acesso"
-            className="w-full pl-10 pr-11 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700 transition-all outline-none"
+            className="w-full min-h-[44px] pl-10 pr-11 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-700 transition-all outline-none"
             disabled={isLoading}
             autoComplete="current-password"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+            className="absolute inset-y-0 right-0 pr-3.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
             title={showPassword ? "Ocultar senha" : "Ver senha"}
           >
             {showPassword ? (
@@ -130,7 +130,7 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full relative flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white transition-all overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
+          className="w-full min-h-[44px] relative flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white transition-all overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
           style={{
             background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
             boxShadow: "0 4px 20px rgba(99, 102, 241, 0.35)",
@@ -164,7 +164,7 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
             <button
               type="button"
               onClick={onSwitchToRegister}
-              className="text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors ml-1 cursor-pointer"
+              className="min-h-[44px] inline-flex items-center text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors ml-1 cursor-pointer"
             >
               Criar conta gratuita
             </button>
