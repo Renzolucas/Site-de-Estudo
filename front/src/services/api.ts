@@ -5,7 +5,7 @@
 
 export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL 
-  : 'http://localhost:8080/api/v1';
+  : 'https://site-de-estudo-production.up.railway.app/api/v1';
 
 export const DEFAULT_USER_ID = 1;
 
