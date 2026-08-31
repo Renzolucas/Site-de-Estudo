@@ -93,13 +93,24 @@ public class TaskService {
     public TaskResponse update(Long id, TaskUpdateRequest request) {
         Task task = findEntityById(id);
 
-        task.setTitle(request.title());
-        task.setDescription(request.description());
-        task.setCategory(request.category());
-        task.setSeason(request.season());
-        task.setPlannedDurationMinutes(request.plannedDurationMinutes());
-        task.setTargetDate(request.targetDate());
-
+        if (request.title() != null && !request.title().isBlank()) {
+            task.setTitle(request.title());
+        }
+        if (request.description() != null) {
+            task.setDescription(request.description());
+        }
+        if (request.category() != null) {
+            task.setCategory(request.category());
+        }
+        if (request.season() != null) {
+            task.setSeason(request.season());
+        }
+        if (request.plannedDurationMinutes() != null && request.plannedDurationMinutes() > 0) {
+            task.setPlannedDurationMinutes(request.plannedDurationMinutes());
+        }
+        if (request.targetDate() != null) {
+            task.setTargetDate(request.targetDate());
+        }
         if (request.xpReward() != null && request.xpReward() > 0) {
             task.setXpReward(request.xpReward());
         }
