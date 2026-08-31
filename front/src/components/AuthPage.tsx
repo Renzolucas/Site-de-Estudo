@@ -32,7 +32,10 @@ export default function AuthPage({ onAuthSuccess, defaultMode = "login" }: AuthP
       {/* Hero / Apresentação do StudyOS */}
       <div className="text-center max-w-xl mb-7 relative z-10 animate-fade-in">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-950/40 text-indigo-300 text-xs font-semibold mb-4 shadow-sm shadow-indigo-950/50">
-          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
           StudyOS · Sistema Operacional de Estudos
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-100 tracking-tight leading-tight">
