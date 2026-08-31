@@ -17,6 +17,9 @@ import api, {
   setStoredUser,
   isAuthenticated,
   onUnauthorized,
+  formatTaskCategory,
+  formatTaskStatus,
+  formatSeason,
   DEFAULT_USER_ID,
   type TaskResponse,
   type UserProfileResponse,
@@ -113,13 +116,29 @@ const parseTimeToMinutes = (s: string): number => {
   return 0;
 };
 
+const getTodayIsoDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayQuarterId = (): number => {
+  const month = new Date().getMonth();
+  if (month < 3) return 1; // Verão (SUMMER / Q1)
+  if (month < 6) return 2; // Outono (AUTUMN / Q2)
+  if (month < 9) return 3; // Inverno (WINTER / Q3)
+  return 4; // Primavera (SPRING / Q4)
+};
+
 const mapCategoryColor = (cat: string = ""): string => {
   const c = cat.toUpperCase();
   if (c.includes("JAVA") || c.includes("BACKEND")) return "#6366F1";
   if (c.includes("FRONTEND") || c.includes("REACT")) return "#06B6D4";
-  if (c.includes("EXERCISE") || c.includes("WORKOUT")) return "#10B981";
-  if (c.includes("ENGLISH")) return "#F97316";
-  if (c.includes("DATABASE") || c.includes("SYSTEM")) return "#8B5CF6";
+  if (c.includes("EXERCISE") || c.includes("EXERCICIO") || c.includes("WORKOUT")) return "#10B981";
+  if (c.includes("ENGLISH") || c.includes("INGLES")) return "#F97316";
+  if (c.includes("DATABASE") || c.includes("BANCO") || c.includes("SYSTEM")) return "#8B5CF6";
   if (c.includes("LEETCODE") || c.includes("ALGO")) return "#EC4899";
   if (c.includes("DEVOPS") || c.includes("CLOUD")) return "#3B82F6";
   return "#A855F7";
@@ -141,10 +160,10 @@ const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
 
   return {
     id: t.id,
-    category: (t.category || "OTHER").replace(/_/g, " "),
+    category: formatTaskCategory(t.category),
     categoryColor: mapCategoryColor(t.category),
     title: t.title,
-    subtitle: t.description || `Roadmap · ${t.season || "Geral"}`,
+    subtitle: t.description || `Roadmap · ${formatSeason(t.season)}`,
     plannedTime: formatMinutesToHm(t.plannedDurationMinutes),
     actualTime: t.actualDurationMinutes ? formatMinutesToHm(t.actualDurationMinutes) : null,
     status,
@@ -156,12 +175,12 @@ const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
 };
 
 const getLevelTitle = (level: number): string => {
-  if (level <= 1) return "Novice";
-  if (level <= 3) return "Apprentice";
-  if (level <= 5) return "Scholar";
-  if (level <= 8) return "Master";
-  if (level <= 12) return "Grandmaster";
-  return "Legend";
+  if (level <= 1) return "Iniciante";
+  if (level <= 3) return "Aprendiz";
+  if (level <= 5) return "Estudioso";
+  if (level <= 8) return "Mestre";
+  if (level <= 12) return "Grão-Mestre";
+  return "Lenda";
 };
 
 // ── Seasonal Default Setup (Estrutura 100% dinâmica sem dados falsos) ───────
@@ -169,7 +188,7 @@ const getLevelTitle = (level: number): string => {
 const DEFAULT_SEASON_QUARTERS: RoadmapQuarter[] = [
   {
     id: 1,
-    season: "Summer",
+    season: "Verão",
     seasonKey: "SUMMER",
     quarter: "Q1",
     icon: "☀️",
@@ -181,7 +200,7 @@ const DEFAULT_SEASON_QUARTERS: RoadmapQuarter[] = [
   },
   {
     id: 2,
-    season: "Autumn",
+    season: "Outono",
     seasonKey: "AUTUMN",
     quarter: "Q2",
     icon: "🍂",
@@ -193,7 +212,7 @@ const DEFAULT_SEASON_QUARTERS: RoadmapQuarter[] = [
   },
   {
     id: 3,
-    season: "Winter",
+    season: "Inverno",
     seasonKey: "WINTER",
     quarter: "Q3",
     icon: "❄️",
@@ -205,7 +224,7 @@ const DEFAULT_SEASON_QUARTERS: RoadmapQuarter[] = [
   },
   {
     id: 4,
-    season: "Spring",
+    season: "Primavera",
     seasonKey: "SPRING",
     quarter: "Q4",
     icon: "🌸",
@@ -244,7 +263,7 @@ const calculateDynamicBadges = (
     {
       id: 2,
       icon: "🔥",
-      name: "Guerreiro do Streak",
+      name: "Guerreiro da Sequência",
       description: "Mantenha uma sequência de 7 dias de estudo",
       unlocked: streak >= 7,
       progress: Math.min(streak, 7),
@@ -311,10 +330,10 @@ const calculateDynamicBadges = (
 
 const StatusBadge = ({ status }: { status: TaskStatus }) => {
   const config = {
-    completed: { label: "Completed", bg: "bg-emerald-500/15", text: "text-emerald-400", dot: "bg-emerald-400" },
-    partial: { label: "Partial", bg: "bg-amber-500/15", text: "text-amber-400", dot: "bg-amber-400" },
-    "in-progress": { label: "In Progress", bg: "bg-indigo-500/15", text: "text-indigo-400", dot: "bg-indigo-400" },
-    pending: { label: "Pending", bg: "bg-slate-700/40", text: "text-slate-400", dot: "bg-slate-500" },
+    completed: { label: "Concluída", bg: "bg-emerald-500/15", text: "text-emerald-400", dot: "bg-emerald-400" },
+    partial: { label: "Parcial", bg: "bg-amber-500/15", text: "text-amber-400", dot: "bg-amber-400" },
+    "in-progress": { label: "Em Andamento", bg: "bg-indigo-500/15", text: "text-indigo-400", dot: "bg-indigo-400" },
+    pending: { label: "Pendente", bg: "bg-slate-700/40", text: "text-slate-400", dot: "bg-slate-500" },
   }[status];
 
   return (
@@ -410,8 +429,8 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
   const statusOptions = [
     {
       key: "complete" as const,
-      label: "Complete",
-      sub: "All objectives done",
+      label: "Concluído",
+      sub: "Todos os objetivos cumpridos",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M20 6 9 17l-5-5" />
@@ -422,8 +441,8 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
     },
     {
       key: "partial" as const,
-      label: "Partial",
-      sub: "Some progress made",
+      label: "Parcial",
+      sub: "Progresso parcial realizado",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" opacity=".4" />
@@ -435,8 +454,8 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
     },
     {
       key: "interrupted" as const,
-      label: "Interrupted",
-      sub: "Session cut short",
+      label: "Interrompido",
+      sub: "Sessão interrompida",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <circle cx="12" cy="12" r="10" />
@@ -508,14 +527,14 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
           {/* Duration Comparison */}
           <div>
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Duration</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Duração</label>
               {hasActual && (
                 <span className={`text-xs font-mono font-medium px-2 py-0.5 rounded-full ${
                   overran ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"
                 }`}>
                   {overran
-                    ? `+${actualMins - plannedMins}m over`
-                    : plannedMins - actualMins === 0 ? "On target" : `${plannedMins - actualMins}m under`}
+                    ? `+${actualMins - plannedMins}m a mais`
+                    : plannedMins - actualMins === 0 ? "No tempo previsto" : `${plannedMins - actualMins}m a menos`}
                 </span>
               )}
             </div>
@@ -526,10 +545,10 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                   </svg>
-                  Planned
+                  Planejado
                 </p>
                 <p className="font-mono text-xl font-semibold text-slate-300">{task.plannedTime}</p>
-                <p className="text-xs text-slate-700 mt-1">target</p>
+                <p className="text-xs text-slate-700 mt-1">meta</p>
               </div>
 
               <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
@@ -537,7 +556,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                   </svg>
-                  Actual
+                  Realizado
                 </p>
                 <div className="flex items-center justify-around sm:justify-start gap-2">
                   <div className="flex flex-col items-center gap-1">
@@ -582,7 +601,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                 <div className="flex justify-between text-xs text-slate-600 mb-1.5">
                   <span>0m</span>
                   <span className="text-slate-500">
-                    {efficiencyPct}% of planned time used
+                    {efficiencyPct}% do tempo planejado utilizado
                   </span>
                   <span>{task.plannedTime}</span>
                 </div>
@@ -604,7 +623,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
           {/* Completion Status */}
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">
-              Completion Status
+              Status de Conclusão
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {statusOptions.map((opt) => {
@@ -635,7 +654,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                Notes &amp; Interruptions
+                Anotações e Observações
               </label>
               <span className="text-xs text-slate-700 font-mono">{notes.length}/400</span>
             </div>
@@ -643,7 +662,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value.slice(0, 400))}
-                placeholder="What happened during this session? Any blockers, interruptions, or observations worth noting…"
+                placeholder="O que aconteceu nesta sessão? Anote bloqueios, interrupções ou observações relevantes…"
                 rows={3}
                 className="w-full px-4 py-3 rounded-xl text-sm leading-relaxed resize-none transition-all"
                 style={{
@@ -655,7 +674,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                 }}
               />
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {["Meeting ran over", "Lost focus", "Technical issues", "Sprint completed"].map((chip) => (
+                {["Reunião estendida", "Perda de foco", "Problemas técnicos", "Meta concluída"].map((chip) => (
                   <button
                     key={chip}
                     type="button"
@@ -683,9 +702,9 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   <span className="text-sm">⚡</span>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-300">XP Reward</p>
+                  <p className="text-xs font-semibold text-slate-300">Recompensa de XP</p>
                   <p className="text-xs text-slate-600">
-                    {completionStatus === "complete" ? "Full reward (100%)" : completionStatus === "partial" ? "Partial (60%)" : "Interrupted (25%)"}
+                    {completionStatus === "complete" ? "Recompensa integral (100%)" : completionStatus === "partial" ? "Parcial (60%)" : "Interrompido (25%)"}
                   </p>
                 </div>
               </div>
@@ -697,9 +716,9 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
 
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-slate-600">
-                <span>Level {userLevel}</span>
+                <span>Nível {userLevel}</span>
                 <span>{nextLevelProgress}/500 XP</span>
-                <span>Level {userLevel + Math.floor(nextLevelProgress / 500)}</span>
+                <span>Nível {userLevel + Math.floor(nextLevelProgress / 500)}</span>
               </div>
               <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
                 <div
@@ -752,7 +771,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  Save &amp; Claim XP
+                  Salvar e Resgatar XP
                 </>
               )}
               {phase === "saving" && (
@@ -768,7 +787,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M20 6 9 17l-5-5" />
                   </svg>
-                  +{xpEarned} XP Claimed!
+                  +{xpEarned} XP Resgatados!
                 </span>
               )}
             </button>
@@ -829,7 +848,7 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
               </svg>
-              <span className="text-slate-500">Planned</span>
+              <span className="text-slate-500">Planejado</span>
               <span className="font-mono text-slate-300">{task.plannedTime}</span>
             </div>
             {task.actualTime && (
@@ -839,7 +858,7 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                   </svg>
-                  <span className="text-slate-500">Actual</span>
+                  <span className="text-slate-500">Realizado</span>
                   <span className="font-mono text-emerald-400">{task.actualTime}</span>
                 </div>
               </>
@@ -854,7 +873,7 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
               </svg>
-              Log Time
+              Registrar Tempo
             </button>
           )}
         </div>
@@ -1086,19 +1105,24 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 interface AddTaskModalProps {
   quarters: RoadmapQuarter[];
   defaultQuarterId?: number;
+  defaultDueDate?: string;
   onAdd: (quarterId: number, title: string, dueDate: string, category?: string, plannedMinutes?: number) => Promise<void>;
   onClose: () => void;
 }
 
-const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskModalProps) => {
+const AddTaskModal = ({ quarters, defaultQuarterId, defaultDueDate, onAdd, onClose }: AddTaskModalProps) => {
   const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0]?.id ?? 1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("JAVA_BACKEND");
   const [plannedMinutes, setPlannedMinutes] = useState(60);
   const [dueDate, setDueDate] = useState(() => {
+    if (defaultDueDate) return defaultDueDate;
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
-    return d.toISOString().split("T")[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -1205,12 +1229,12 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
               >
                 <option value="JAVA_BACKEND">Java Backend</option>
                 <option value="FRONTEND">Frontend</option>
-                <option value="DATABASE">Database</option>
+                <option value="DATABASE">Banco de Dados</option>
                 <option value="DEVOPS">DevOps</option>
-                <option value="ENGLISH">English</option>
-                <option value="EXERCISE">Exercise</option>
-                <option value="READING">Reading</option>
-                <option value="OTHER">Other</option>
+                <option value="ENGLISH">Inglês</option>
+                <option value="EXERCISE">Exercício Físico</option>
+                <option value="READING">Leitura</option>
+                <option value="OTHER">Outros</option>
               </select>
             </div>
 
@@ -1647,7 +1671,7 @@ export default function App() {
   const [timeLogs, setTimeLogs] = useState<TimeLogResponse[]>([]);
   const [userStats, setUserStats] = useState<StudyStatsResponse | null>(null);
   const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
-  const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number }>({ open: false });
+  const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number; defaultDueDate?: string }>({ open: false });
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
 
   const addToast = useCallback((toast: Omit<NotificationToast, "id">) => {
@@ -1850,7 +1874,7 @@ export default function App() {
             setStoredUser(updatedUser);
             addToast({
               type: "xp",
-              title: "Task Concluída!",
+              title: "Tarefa Concluída!",
               message: "Status atualizado no banco de dados. XP sincronizado!",
               xp: 80,
             });
@@ -2133,19 +2157,28 @@ export default function App() {
 
               {/* Desktop Nav Tabs (>= 768px) */}
               <nav className="hidden md:flex items-center gap-1">
-                {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
-                      activeTab === tab
-                        ? "bg-slate-800 text-slate-100 shadow-sm"
-                        : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
-                    }`}
-                  >
-                    {tab === "Leaderboard" ? "Ranking 🏆" : tab}
-                  </button>
-                ))}
+                {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => {
+                  const labelMap: Record<NavTab, string> = {
+                    Dashboard: "Painel",
+                    Performance: "Desempenho",
+                    Badges: "Conquistas",
+                    Roadmap: "Roadmap",
+                    Leaderboard: "Ranking 🏆",
+                  };
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
+                        activeTab === tab
+                          ? "bg-slate-800 text-slate-100 shadow-sm"
+                          : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+                      }`}
+                    >
+                      {labelMap[tab]}
+                    </button>
+                  );
+                })}
               </nav>
             </div>
 
@@ -2183,7 +2216,7 @@ export default function App() {
               <div className="hidden lg:flex flex-col items-end gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-indigo-400">
-                    Level {currentLevel} · {getLevelTitle(currentLevel)}
+                    Nível {currentLevel} · {getLevelTitle(currentLevel)}
                   </span>
                 </div>
                 <XPBar current={currentXpInLevel} max={maxXpInLevel} />
@@ -2221,19 +2254,28 @@ export default function App() {
 
           {/* Mobile/Tablet Subnav: Scrollable Tab Pills */}
           <div className="flex md:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-2 border-t border-slate-800/50">
-            {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex-shrink-0 ${
-                  activeTab === tab
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-slate-200 bg-slate-900/60 border border-slate-800/80"
-                }`}
-              >
-                {tab === "Leaderboard" ? "Ranking 🏆" : tab}
-              </button>
-            ))}
+            {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => {
+              const labelMap: Record<NavTab, string> = {
+                Dashboard: "Painel",
+                Performance: "Desempenho",
+                Badges: "Conquistas",
+                Roadmap: "Roadmap",
+                Leaderboard: "Ranking 🏆",
+              };
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex-shrink-0 ${
+                    activeTab === tab
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                      : "text-slate-400 hover:text-slate-200 bg-slate-900/60 border border-slate-800/80"
+                  }`}
+                >
+                  {labelMap[tab]}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
@@ -2246,7 +2288,7 @@ export default function App() {
             <div className="col-span-1 lg:col-span-2 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="heading-fluid-title font-semibold text-slate-100">Today's Schedule</h1>
+                  <h1 className="heading-fluid-title font-semibold text-slate-100">Cronograma de Hoje</h1>
                   <p className="text-xs text-slate-500 mt-0.5 capitalize">{todayDate}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2259,6 +2301,36 @@ export default function App() {
                       <span className="text-xs font-bold text-indigo-400">{totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0}%</span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAddTaskModal({
+                        open: true,
+                        defaultQuarterId: getTodayQuarterId(),
+                        defaultDueDate: getTodayIsoDate(),
+                      })
+                    }
+                    aria-label="Adicionar tarefa ao cronograma de hoje"
+                    title="Adicionar Tarefa para Hoje"
+                    className="min-h-[40px] h-10 px-3 sm:px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700/90 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 text-slate-300 hover:text-white transition-all cursor-pointer active:scale-95 group flex-shrink-0"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-indigo-400 group-hover:text-indigo-300 transition-transform duration-200 group-hover:rotate-90"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    <span className="text-xs font-semibold hidden sm:inline text-slate-200 group-hover:text-white">
+                      Nova Tarefa
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2278,7 +2350,13 @@ export default function App() {
                       Seu cronograma de hoje está livre. Adicione suas metas de estudo no StudyOS para começar a registrar tempo e acumular XP.
                     </p>
                     <button
-                      onClick={() => setAddTaskModal({ open: true })}
+                      onClick={() =>
+                        setAddTaskModal({
+                          open: true,
+                          defaultQuarterId: getTodayQuarterId(),
+                          defaultDueDate: getTodayIsoDate(),
+                        })
+                      }
                       className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
                       style={{
                         background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
@@ -2389,7 +2467,7 @@ export default function App() {
         {activeTab === "Performance" && (
           <div>
             <div className="mb-6">
-              <h1 className="heading-fluid-title font-semibold text-slate-100">Performance Overview</h1>
+              <h1 className="heading-fluid-title font-semibold text-slate-100">Visão Geral de Desempenho</h1>
               <p className="text-xs text-slate-500 mt-0.5">Histórico e métricas de desempenho calculadas em tempo real</p>
             </div>
             <PerformanceView
@@ -2405,7 +2483,7 @@ export default function App() {
           <div>
             <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
-                <h1 className="heading-fluid-title font-semibold text-slate-100">Achievements &amp; Conquistas</h1>
+                <h1 className="heading-fluid-title font-semibold text-slate-100">Conquistas e Medalhas</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {earnedBadgesCount} de {dynamicBadges.length} conquistas desbloqueadas
                 </p>
@@ -2426,7 +2504,7 @@ export default function App() {
             <div className="col-span-1 lg:col-span-2 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="heading-fluid-title font-semibold text-slate-100">Yearly Roadmap</h1>
+                  <h1 className="heading-fluid-title font-semibold text-slate-100">Roadmap Anual</h1>
                   <p className="text-xs text-slate-500 mt-0.5">4 estações sazonais sincronizadas diretamente com o banco de dados</p>
                 </div>
                 <button
@@ -2486,6 +2564,7 @@ export default function App() {
         <AddTaskModal
           quarters={quarters}
           defaultQuarterId={addTaskModal.defaultQuarterId}
+          defaultDueDate={addTaskModal.defaultDueDate}
           onAdd={handleAddTask}
           onClose={() => setAddTaskModal({ open: false })}
         />

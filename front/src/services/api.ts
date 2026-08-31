@@ -25,6 +25,48 @@ export type TaskCategory =
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'PARTIAL' | 'COMPLETED';
 export type CompletionStatus = 'COMPLETED' | 'PARTIAL' | 'INTERRUPTED';
 
+export function formatTaskCategory(category?: string | TaskCategory): string {
+  const map: Record<string, string> = {
+    JAVA_BACKEND: 'Java Backend',
+    FRONTEND: 'Frontend',
+    DATABASE: 'Banco de Dados',
+    DEVOPS: 'DevOps',
+    ENGLISH: 'Inglês',
+    EXERCISE: 'Exercício Físico',
+    READING: 'Leitura',
+    OTHER: 'Outros',
+  };
+  if (!category) return 'Outros';
+  const key = category.toUpperCase().replace(/\s+/g, '_');
+  return map[key] || category.replace(/_/g, ' ');
+}
+
+export function formatTaskStatus(status?: string | TaskStatus): string {
+  const map: Record<string, string> = {
+    COMPLETED: 'Concluída',
+    completed: 'Concluída',
+    PARTIAL: 'Parcial',
+    partial: 'Parcial',
+    IN_PROGRESS: 'Em Andamento',
+    'in-progress': 'Em Andamento',
+    PENDING: 'Pendente',
+    pending: 'Pendente',
+  };
+  if (!status) return 'Pendente';
+  return map[status] || status;
+}
+
+export function formatSeason(season?: string | Season): string {
+  const map: Record<string, string> = {
+    SUMMER: 'Verão',
+    AUTUMN: 'Outono',
+    WINTER: 'Inverno',
+    SPRING: 'Primavera',
+  };
+  if (!season) return 'Geral';
+  return map[season.toUpperCase()] || season;
+}
+
 export interface TaskResponse {
   id: number;
   userId: number;
@@ -226,25 +268,53 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
 
   const categoryMap: Record<string, TaskCategory> = {
     'JAVA BACKEND': 'JAVA_BACKEND',
+    'JAVA_BACKEND': 'JAVA_BACKEND',
     'FRONTEND': 'FRONTEND',
     'DATABASE': 'DATABASE',
+    'BANCO DE DADOS': 'DATABASE',
+    'BANCO_DE_DADOS': 'DATABASE',
     'SYSTEM DESIGN': 'DATABASE',
     'DEVOPS': 'DEVOPS',
     'ENGLISH': 'ENGLISH',
+    'INGLES': 'ENGLISH',
+    'INGLÊS': 'ENGLISH',
     'EXERCISE': 'EXERCISE',
+    'EXERCICIO': 'EXERCISE',
+    'EXERCÍCIO': 'EXERCISE',
+    'EXERCÍCIO FÍSICO': 'EXERCISE',
+    'EXERCICIO FISICO': 'EXERCISE',
     'LEETCODE': 'JAVA_BACKEND',
     'READING': 'READING',
+    'LEITURA': 'READING',
+    'OTHER': 'OTHER',
+    'OUTROS': 'OTHER',
+    'OUTRO': 'OTHER',
+  };
+
+  const seasonMap: Record<string, Season> = {
+    'VERAO': 'SUMMER',
+    'VERÃO': 'SUMMER',
+    'SUMMER': 'SUMMER',
+    'OUTONO': 'AUTUMN',
+    'AUTUMN': 'AUTUMN',
+    'INVERNO': 'WINTER',
+    'WINTER': 'WINTER',
+    'PRIMAVERA': 'SPRING',
+    'SPRING': 'SPRING',
   };
 
   const rawCat = (taskData.category || 'JAVA_BACKEND').toString().toUpperCase().trim();
   const validCategory = categoryMap[rawCat] || (rawCat.replace(/\s+/g, '_') as TaskCategory) || 'JAVA_BACKEND';
+
+  const rawSeason = (taskData.season || 'SUMMER').toString().toUpperCase().trim();
+  const validSeason = seasonMap[rawSeason] || (rawSeason as Season) || 'SUMMER';
 
   const payload = {
     userId: taskData.userId || DEFAULT_USER_ID,
     title: taskData.title.trim(),
     description: taskData.description || taskData.notes || '',
     category: validCategory,
-    season: (taskData.season || 'SUMMER').toUpperCase() as Season,
+    season: validSeason,
     plannedDurationMinutes: Number(taskData.plannedDurationMinutes || taskData.plannedMinutes || 60),
     targetDate: taskData.targetDate || taskData.dueDate || new Date().toISOString().split('T')[0],
     xpReward: Number(taskData.xpReward !== undefined ? taskData.xpReward : 80),

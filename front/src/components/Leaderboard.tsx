@@ -8,13 +8,13 @@ interface LeaderboardProps {
   currentUserId?: number;
 }
 
-const getLevelTitle = (level: number): string => {
-  if (level <= 1) return "Novice";
-  if (level <= 3) return "Apprentice";
-  if (level <= 5) return "Scholar";
-  if (level <= 8) return "Master";
-  if (level <= 12) return "Grandmaster";
-  return "Legend";
+export const getLevelTitle = (level: number): string => {
+  if (level <= 1) return "Iniciante";
+  if (level <= 3) return "Aprendiz";
+  if (level <= 5) return "Estudioso";
+  if (level <= 8) return "Mestre";
+  if (level <= 12) return "Grão-Mestre";
+  return "Lenda";
 };
 
 const getInitials = (name: string): string => {
@@ -233,7 +233,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
 
             <h3 className="text-sm font-bold text-slate-100 truncate max-w-[180px]">{top2.name}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Level {top2.level || 1} · <span className="text-slate-300 font-medium">{getLevelTitle(top2.level || 1)}</span>
+              Nível {top2.level || 1} · <span className="text-slate-300 font-medium">{getLevelTitle(top2.level || 1)}</span>
             </p>
 
             {/* Streak & XP */}
@@ -289,7 +289,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
 
             <h3 className="text-base font-extrabold text-amber-100 truncate max-w-[200px]">{top1.name}</h3>
             <p className="text-xs text-amber-400/90 font-medium mt-0.5">
-              Level {top1.level || 1} · {getLevelTitle(top1.level || 1)}
+              Nível {top1.level || 1} · {getLevelTitle(top1.level || 1)}
             </p>
 
             {/* Streak & XP */}
@@ -336,7 +336,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
 
             <h3 className="text-sm font-bold text-slate-100 truncate max-w-[180px]">{top3.name}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Level {top3.level || 1} · <span className="text-slate-300 font-medium">{getLevelTitle(top3.level || 1)}</span>
+              Nível {top3.level || 1} · <span className="text-slate-300 font-medium">{getLevelTitle(top3.level || 1)}</span>
             </p>
 
             {/* Streak & XP */}
@@ -428,7 +428,7 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
                       {/* Nível */}
                       <td className="py-3.5 px-3 sm:px-6">
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/60 whitespace-nowrap">
-                          Lvl {u.level || 1}
+                          Nível {u.level || 1}
                         </span>
                       </td>
 
