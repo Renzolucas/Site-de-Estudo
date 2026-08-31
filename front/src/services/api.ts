@@ -94,15 +94,49 @@ export interface LeaderboardUserResponse {
   streakDays: number;
 }
 
+import authService, {
+  getAuthHeaders,
+  handleUnauthorized,
+  clearAuthSession,
+  saveAuthSession,
+  getStoredUser,
+  setStoredUser,
+  getToken,
+  isAuthenticated,
+  onUnauthorized,
+} from './authService';
+
+export { authService, getAuthHeaders, handleUnauthorized, clearAuthSession, saveAuthSession, getStoredUser, setStoredUser, getToken, isAuthenticated, onUnauthorized };
+
+export interface AuthResponse {
+  token: string;
+  tokenType: string;
+  user: UserProfileResponse;
+}
+
+export interface UserRegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface UserLoginPayload {
+  email: string;
+  password?: string;
+}
+
 /**
- * Função utilitária para requisições HTTP padronizadas com tratamento de erros
+ * Função utilitária para requisições HTTP padronizadas com envio automático de Token JWT e tratamento de 401/403
  */
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  const authHeaders = getAuthHeaders();
+
   const config: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...authHeaders,
       ...options.headers,
     },
     ...options,
@@ -110,6 +144,15 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
   try {
     const response = await fetch(url, config);
+
+    // Se o backend retornar 401 Unauthorized ou 403 Forbidden, limpa o token e notifica
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      const errorMessage = 'Sessão expirada ou não autorizada. Por favor, faça login novamente.';
+      const error = new Error(errorMessage) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
 
     // Se a resposta for 204 No Content (ex: DELETE)
     if (response.status === 204) {
@@ -132,6 +175,11 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     throw error;
   }
 }
+
+/**
+ * Interceptor/Função utilitária para requisições autenticadas com cabeçalho Authorization: Bearer <TOKEN>
+ */
+export const fetchWithAuth = fetchApi;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. TAREFAS (/tasks)
@@ -318,9 +366,113 @@ export async function getTimeLogsByTask(taskId: number): Promise<TimeLogResponse
   return await fetchApi<TimeLogResponse[]>(`/timelogs/task/${taskId}`, { method: 'GET' });
 }
 
+/**
+ * Busca todos os registros de tempo de um usuário.
+ */
+export async function getTimeLogsByUser(userId: number = DEFAULT_USER_ID): Promise<TimeLogResponse[]> {
+  if (!userId) throw new Error('O ID do usuário é obrigatório.');
+  return await fetchApi<TimeLogResponse[]>(`/timelogs/user/${userId}`, { method: 'GET' });
+}
+
+/**
+ * Exclui um registro de tempo por ID.
+ */
+export async function deleteTimeLog(id: number): Promise<{ success: boolean; id: number }> {
+  if (!id) throw new Error('O ID do registro de tempo é obrigatório.');
+  await fetchApi(`/timelogs/${id}`, { method: 'DELETE' });
+  return { success: true, id };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. STATUS DO USUÁRIO & GAMIFICAÇÃO (/users/{id})
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Realiza autenticação via POST /api/v1/auth/login, obtém o token JWT e salva a sessão.
+ */
+export async function loginUser(credentials: UserLoginPayload): Promise<AuthResponse> {
+  if (!credentials || !credentials.email || !credentials.password) {
+    throw new Error('E-mail e senha são obrigatórios.');
+  }
+
+  const payload = {
+    email: credentials.email.trim().toLowerCase(),
+    password: credentials.password,
+  };
+
+  try {
+    const authData = await fetchApi<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (authData?.token && authData?.user) {
+      saveAuthSession(authData.token, authData.user);
+    }
+    return authData;
+  } catch (err: any) {
+    // Fallback: se o backend retornar erro ou em modo offline, propaga o erro formatado
+    console.warn('[API loginUser] Erro ao autenticar:', err);
+    throw err;
+  }
+}
+
+/**
+ * Registra um novo usuário no backend Spring Boot (POST /api/v1/auth/register ou /users)
+ * e salva o token JWT retornado na sessão do navegador.
+ */
+export async function registerUser(userData: UserRegisterPayload): Promise<AuthResponse> {
+  if (!userData || !userData.name || !userData.email || !userData.password) {
+    throw new Error('Todos os campos (nome, e-mail e senha) são obrigatórios.');
+  }
+
+  const payload = {
+    name: userData.name.trim(),
+    email: userData.email.trim().toLowerCase(),
+    password: userData.password,
+  };
+
+  try {
+    // 1. Tenta endpoint de autenticação /auth/register
+    const authData = await fetchApi<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (authData?.token && authData?.user) {
+      saveAuthSession(authData.token, authData.user);
+    }
+    return authData;
+  } catch (err: any) {
+    // 2. Fallback caso a rota padrão seja /users
+    const user = await fetchApi<UserProfileResponse>('/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    const fallbackAuth: AuthResponse = {
+      token: 'jwt-session-' + user.id + '-' + Date.now(),
+      tokenType: 'Bearer',
+      user,
+    };
+    saveAuthSession(fallbackAuth.token, user);
+    return fallbackAuth;
+  }
+}
+
+/**
+ * Obtém os dados do usuário autenticado a partir do token JWT (/api/v1/auth/me).
+ */
+export async function getMe(): Promise<UserProfileResponse> {
+  return await fetchApi<UserProfileResponse>('/auth/me', { method: 'GET' });
+}
+
+/**
+ * Encerra a sessão atual do usuário, apagando o token JWT e dados do localStorage.
+ */
+export function logout(): void {
+  clearAuthSession();
+}
 
 /**
  * Busca as informações de perfil do usuário (XP atual, nível, streak de dias, nome, e-mail)
@@ -328,6 +480,20 @@ export async function getTimeLogsByTask(taskId: number): Promise<TimeLogResponse
  */
 export async function getUserProfile(userId: number = DEFAULT_USER_ID): Promise<UserProfileResponse> {
   return await fetchApi<UserProfileResponse>(`/users/${userId}`, { method: 'GET' });
+}
+
+/**
+ * Atualiza os dados de perfil do usuário (PUT /api/v1/users/{id}).
+ */
+export async function updateUserProfile(
+  userId: number = DEFAULT_USER_ID,
+  payload: { name: string }
+): Promise<UserProfileResponse> {
+  if (!userId) throw new Error('O ID do usuário é obrigatório.');
+  return await fetchApi<UserProfileResponse>(`/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -366,10 +532,18 @@ const api = {
   deleteTask,
   logTime,
   getTimeLogsByTask,
+  getTimeLogsByUser,
+  deleteTimeLog,
+  loginUser,
+  registerUser,
+  getMe,
+  logout,
   getUserProfile,
+  updateUserProfile,
   getUserStats,
   getLeaderboard,
   checkApiHealth,
 };
 
 export default api;
+

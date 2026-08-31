@@ -1,17 +1,30 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import api, {
+  getTasks,
   getTasksBySeason,
   createTask,
+  updateTask,
   deleteTask,
   updateTaskStatus,
   logTime,
   getUserProfile,
   getUserStats,
+  getTimeLogsByUser,
   checkApiHealth,
+  logout,
+  getMe,
+  getStoredUser,
+  setStoredUser,
+  isAuthenticated,
+  onUnauthorized,
+  DEFAULT_USER_ID,
   type TaskResponse,
   type UserProfileResponse,
+  type StudyStatsResponse,
+  type TimeLogResponse,
   type Season,
 } from "./services/api";
+import AuthPage from "./components/AuthPage";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +69,7 @@ interface Task {
   timeStart: string;
   timeEnd: string;
   xpReward: number;
+  targetDate?: string;
 }
 
 interface Badge {
@@ -113,8 +127,8 @@ const mapCategoryColor = (cat: string = ""): string => {
 const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
   const startHours = [8, 10, 11, 14, 16, 17];
   const startH = startHours[index % startHours.length];
-  const durH = Math.max(1, Math.round(t.plannedDurationMinutes / 60));
-  const endH = startH + durH;
+  const durH = Math.max(1, Math.round((t.plannedDurationMinutes || 60) / 60));
+  const endH = Math.min(23, startH + durH);
 
   const startStr = `${String(startH).padStart(2, "0")}:00`;
   const endStr = `${String(endH).padStart(2, "0")}:00`;
@@ -126,16 +140,17 @@ const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
 
   return {
     id: t.id,
-    category: t.category.replace(/_/g, " "),
+    category: (t.category || "OTHER").replace(/_/g, " "),
     categoryColor: mapCategoryColor(t.category),
     title: t.title,
-    subtitle: t.description || "Microservices & clean code principles",
+    subtitle: t.description || `Roadmap · ${t.season || "Geral"}`,
     plannedTime: formatMinutesToHm(t.plannedDurationMinutes),
     actualTime: t.actualDurationMinutes ? formatMinutesToHm(t.actualDurationMinutes) : null,
     status,
     timeStart: startStr,
     timeEnd: endStr,
     xpReward: t.xpReward || 80,
+    targetDate: t.targetDate,
   };
 };
 
@@ -148,102 +163,20 @@ const getLevelTitle = (level: number): string => {
   return "Legend";
 };
 
-// ── Initial Mock / Fallback Data ───────────────────────────────────────────
+// ── Seasonal Default Setup (Estrutura 100% dinâmica sem dados falsos) ───────
 
-const INITIAL_USER: UserProfileResponse = {
-  id: 1,
-  name: "Alexandre K.",
-  email: "alexandre@studyos.com",
-  level: 5,
-  currentXp: 750,
-  streakDays: 12,
-};
-
-const INITIAL_TASKS: Task[] = [
-  {
-    id: 1,
-    category: "Java Backend",
-    categoryColor: "#6366F1",
-    title: "Spring Boot Architecture Study",
-    subtitle: "Microservices patterns & REST API design",
-    plannedTime: "2h 00m",
-    actualTime: "1h 30m",
-    status: "partial",
-    timeStart: "08:00",
-    timeEnd: "10:00",
-    xpReward: 120,
-  },
-  {
-    id: 2,
-    category: "Exercise",
-    categoryColor: "#10B981",
-    title: "Morning Workout + Stretching",
-    subtitle: "Cardio 30m + core training",
-    plannedTime: "1h 00m",
-    actualTime: "1h 05m",
-    status: "completed",
-    timeStart: "06:30",
-    timeEnd: "07:30",
-    xpReward: 80,
-  },
-  {
-    id: 3,
-    category: "English",
-    categoryColor: "#F97316",
-    title: "Business English Writing",
-    subtitle: "Email templates & formal documentation",
-    plannedTime: "45m",
-    actualTime: null,
-    status: "in-progress",
-    timeStart: "11:00",
-    timeEnd: "11:45",
-    xpReward: 60,
-  },
-  {
-    id: 4,
-    category: "System Design",
-    categoryColor: "#8B5CF6",
-    title: "Database Indexing & Query Optimization",
-    subtitle: "PostgreSQL performance tuning",
-    plannedTime: "1h 30m",
-    actualTime: null,
-    status: "pending",
-    timeStart: "14:00",
-    timeEnd: "15:30",
-    xpReward: 100,
-  },
-  {
-    id: 5,
-    category: "LeetCode",
-    categoryColor: "#EC4899",
-    title: "Dynamic Programming — Medium Set",
-    subtitle: "Knapsack, coin change, LIS problems",
-    plannedTime: "1h 00m",
-    actualTime: null,
-    status: "pending",
-    timeStart: "16:00",
-    timeEnd: "17:00",
-    xpReward: 90,
-  },
-];
-
-const INITIAL_QUARTERS: RoadmapQuarter[] = [
+const DEFAULT_SEASON_QUARTERS: RoadmapQuarter[] = [
   {
     id: 1,
     season: "Summer",
     seasonKey: "SUMMER",
     quarter: "Q1",
     icon: "☀️",
-    subtitle: "Java Backend Foundations",
-    goal: "Complete Spring Boot mastery path and ship a production-ready REST API with authentication, testing, and CI/CD pipeline.",
+    subtitle: "Estação de Verão",
+    goal: "Defina seus objetivos principais para a estação de Verão.",
     accentColor: "#F97316",
     glowColor: "rgba(249,115,22,0.15)",
-    tasks: [
-      { id: 101, title: "Spring Boot core modules", dueDate: "2026-07-15", completed: true, expanded: false, notes: "Controllers, services, repos, DI", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 120 },
-      { id: 102, title: "REST API + OpenAPI docs", dueDate: "2026-07-28", completed: true, expanded: false, notes: "Swagger, versioning, error handling", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 90 },
-      { id: 103, title: "Spring Security + JWT", dueDate: "2026-08-10", completed: false, expanded: false, notes: "OAuth2 integration planned", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 100 },
-      { id: 104, title: "Unit & integration testing", dueDate: "2026-08-25", completed: false, expanded: false, notes: "JUnit 5, Mockito, Testcontainers", category: "JAVA_BACKEND", plannedMinutes: 60, xpReward: 80 },
-    ],
+    tasks: [],
   },
   {
     id: 2,
@@ -251,16 +184,11 @@ const INITIAL_QUARTERS: RoadmapQuarter[] = [
     seasonKey: "AUTUMN",
     quarter: "Q2",
     icon: "🍂",
-    subtitle: "Databases & System Design",
-    goal: "Deep-dive into relational and NoSQL databases, query optimization, and distributed system design patterns.",
+    subtitle: "Estação de Outono",
+    goal: "Defina seus objetivos principais para a estação de Outono.",
     accentColor: "#10B981",
     glowColor: "rgba(16,185,129,0.12)",
-    tasks: [
-      { id: 201, title: "PostgreSQL advanced indexing", dueDate: "2026-09-20", completed: false, expanded: false, notes: "B-tree, GIN, partial indexes", category: "DATABASE", plannedMinutes: 90, xpReward: 90 },
-      { id: 202, title: "Redis caching patterns", dueDate: "2026-10-05", completed: false, expanded: false, notes: "Cache-aside, write-through", category: "DATABASE", plannedMinutes: 60, xpReward: 80 },
-      { id: 203, title: "System design interviews", dueDate: "2026-10-20", completed: false, expanded: false, notes: "URL shortener, Twitter feed, etc.", category: "DATABASE", plannedMinutes: 120, xpReward: 120 },
-      { id: 204, title: "MongoDB aggregation pipeline", dueDate: "2026-11-01", completed: false, expanded: false, notes: "Complex analytics queries", category: "DATABASE", plannedMinutes: 60, xpReward: 70 },
-    ],
+    tasks: [],
   },
   {
     id: 3,
@@ -268,16 +196,11 @@ const INITIAL_QUARTERS: RoadmapQuarter[] = [
     seasonKey: "WINTER",
     quarter: "Q3",
     icon: "❄️",
-    subtitle: "Algorithms & English Fluency",
-    goal: "Reach LeetCode 200 solved problems milestone and achieve B2+ business English through structured writing practice.",
+    subtitle: "Estação de Inverno",
+    goal: "Defina seus objetivos principais para a estação de Inverno.",
     accentColor: "#6366F1",
     glowColor: "rgba(99,102,241,0.12)",
-    tasks: [
-      { id: 301, title: "Dynamic programming series", dueDate: "2026-11-30", completed: false, expanded: false, notes: "50 DP problems minimum", category: "JAVA_BACKEND", plannedMinutes: 120, xpReward: 110 },
-      { id: 302, title: "Graph algorithms mastery", dueDate: "2026-12-15", completed: false, expanded: false, notes: "BFS, DFS, Dijkstra, A*", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 100 },
-      { id: 303, title: "Business writing course", dueDate: "2026-12-20", completed: false, expanded: false, notes: "Formal emails, reports, proposals", category: "ENGLISH", plannedMinutes: 45, xpReward: 60 },
-      { id: 304, title: "Mock interview × 10", dueDate: "2027-01-10", completed: false, expanded: false, notes: "2 per week with feedback", category: "ENGLISH", plannedMinutes: 60, xpReward: 90 },
-    ],
+    tasks: [],
   },
   {
     id: 4,
@@ -285,30 +208,103 @@ const INITIAL_QUARTERS: RoadmapQuarter[] = [
     seasonKey: "SPRING",
     quarter: "Q4",
     icon: "🌸",
-    subtitle: "Cloud & Career Launch",
-    goal: "Obtain AWS Solutions Architect certification and secure a senior backend engineering role with target €80k+ compensation.",
+    subtitle: "Estação de Primavera",
+    goal: "Defina seus objetivos principais para a estação de Primavera.",
     accentColor: "#8B5CF6",
     glowColor: "rgba(139,92,246,0.12)",
-    tasks: [
-      { id: 401, title: "AWS SAA-C03 certification", dueDate: "2027-02-01", completed: false, expanded: false, notes: "EC2, RDS, Lambda, VPC focus", category: "DEVOPS", plannedMinutes: 180, xpReward: 150 },
-      { id: 402, title: "Portfolio project: SaaS MVP", dueDate: "2027-02-28", completed: false, expanded: false, notes: "Full-stack with Spring + React", category: "FRONTEND", plannedMinutes: 120, xpReward: 130 },
-      { id: 403, title: "Technical interviews prep", dueDate: "2027-03-15", completed: false, expanded: false, notes: "System design + coding rounds", category: "JAVA_BACKEND", plannedMinutes: 90, xpReward: 100 },
-      { id: 404, title: "Target job applications", dueDate: "2027-04-01", completed: false, expanded: false, notes: "20 applications minimum", category: "OTHER", plannedMinutes: 60, xpReward: 70 },
-    ],
+    tasks: [],
   },
 ];
 
-const BADGES: Badge[] = [
-  { id: 1, icon: "🌅", name: "Early Bird", description: "Complete a task before 8 AM", unlocked: true },
-  { id: 2, icon: "🔥", name: "Week Warrior", description: "7-day study streak", unlocked: true },
-  { id: 3, icon: "💯", name: "Perfect Day", description: "Complete all daily tasks", unlocked: true },
-  { id: 4, icon: "⚡", name: "Speed Runner", description: "Finish a task 20% under time", unlocked: true },
-  { id: 5, icon: "🏆", name: "100 Hours Club", description: "Log 100 total study hours", unlocked: false, progress: 74, total: 100 },
-  { id: 6, icon: "🧠", name: "Resilient Learner", description: "Resume after 3 interruptions", unlocked: false, progress: 2, total: 3 },
-  { id: 7, icon: "📚", name: "Polymath", description: "Study 5 different subjects", unlocked: false, progress: 3, total: 5 },
-  { id: 8, icon: "🌙", name: "Night Owl", description: "Study after 10 PM for 5 days", unlocked: false, progress: 1, total: 5 },
-  { id: 9, icon: "🎯", name: "Precision", description: "Match planned vs actual time (±5m) 10 times", unlocked: false, progress: 4, total: 10 },
-];
+// ── Conquistas / Badges Calculados Dinamicamente dos Dados Reais da API ────
+
+const calculateDynamicBadges = (
+  user: UserProfileResponse | null,
+  tasks: Task[],
+  totalStudyMinutes: number
+): Badge[] => {
+  const completedTasks = tasks.filter(t => t.status === "completed").length;
+  const streak = user?.streakDays || 0;
+  const currentXp = user?.currentXp || 0;
+  const level = user?.level || 1;
+  const totalTasks = tasks.length;
+  const studyHours = Math.floor(totalStudyMinutes / 60);
+
+  return [
+    {
+      id: 1,
+      icon: "🎯",
+      name: "Primeiro Passo",
+      description: "Conclua sua primeira tarefa no StudyOS",
+      unlocked: completedTasks >= 1,
+      progress: Math.min(completedTasks, 1),
+      total: 1,
+    },
+    {
+      id: 2,
+      icon: "🔥",
+      name: "Guerreiro do Streak",
+      description: "Mantenha uma sequência de 7 dias de estudo",
+      unlocked: streak >= 7,
+      progress: Math.min(streak, 7),
+      total: 7,
+    },
+    {
+      id: 3,
+      icon: "💯",
+      name: "Dia Perfeito",
+      description: "Complete todas as tarefas planejadas para o dia",
+      unlocked: totalTasks > 0 && completedTasks === totalTasks,
+      progress: totalTasks > 0 && completedTasks === totalTasks ? 1 : 0,
+      total: 1,
+    },
+    {
+      id: 4,
+      icon: "⚡",
+      name: "Produtividade 5+",
+      description: "Conclua pelo menos 5 tarefas no sistema",
+      unlocked: completedTasks >= 5,
+      progress: Math.min(completedTasks, 5),
+      total: 5,
+    },
+    {
+      id: 5,
+      icon: "🏆",
+      name: "Clube das 100 Horas",
+      description: "Registre 100 horas de estudo no sistema",
+      unlocked: studyHours >= 100,
+      progress: Math.min(studyHours, 100),
+      total: 100,
+    },
+    {
+      id: 6,
+      icon: "🎓",
+      name: "Mestre dos Níveis",
+      description: "Alcance o Nível 5 na sua jornada de estudos",
+      unlocked: level >= 5,
+      progress: Math.min(level, 5),
+      total: 5,
+    },
+    {
+      id: 7,
+      icon: "⭐",
+      name: "Acumulador de XP",
+      description: "Acumule mais de 1.000 pontos de XP",
+      unlocked: currentXp >= 1000,
+      progress: Math.min(currentXp, 1000),
+      total: 1000,
+    },
+    {
+      id: 8,
+      icon: "🗺️",
+      name: "Estrategista de Roadmap",
+      description: "Cadastre 10 ou mais tarefas no Roadmap Anual",
+      unlocked: totalTasks >= 10,
+      progress: Math.min(totalTasks, 10),
+      total: 10,
+    },
+  ];
+};
 
 // ── Components ─────────────────────────────────────────────────────────────
 
@@ -349,11 +345,12 @@ interface ModalProps {
   task: Task;
   userXp: number;
   userLevel: number;
+  userId: number;
   onClose: () => void;
   onTimeLogged: (taskId: number, minutes: number, status: string, notes: string, updatedUser: UserProfileResponse | null) => void;
 }
 
-const TimeLogModal = ({ task, userXp, userLevel, onClose, onTimeLogged }: ModalProps) => {
+const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }: ModalProps) => {
   const [hours, setHours] = useState(1);
   const [minutes, setMinutes] = useState(0);
   const [completionStatus, setCompletionStatus] = useState<"complete" | "partial" | "interrupted">("complete");
@@ -387,12 +384,12 @@ const TimeLogModal = ({ task, userXp, userLevel, onClose, onTimeLogged }: ModalP
     setErrorMessage("");
 
     try {
-      // Chamada oficial à API REST do Spring Boot
+      // Chamada oficial à API REST do Spring Boot com o userId autenticado
       const response = await logTime(task.id, {
         actualMinutes: actualMins,
         completionStatus: completionStatus === "complete" ? "COMPLETED" : completionStatus === "partial" ? "PARTIAL" : "INTERRUPTED",
         notes,
-      });
+      }, userId);
 
       setPhase("done");
       setTimeout(() => {
@@ -401,7 +398,6 @@ const TimeLogModal = ({ task, userXp, userLevel, onClose, onTimeLogged }: ModalP
       }, 1200);
     } catch (err: any) {
       console.warn("Backend request failed, falling back to local optimistic state:", err);
-      // Suporte a modo offline gracioso
       setPhase("done");
       setTimeout(() => {
         onTimeLogged(task.id, actualMins, completionStatus, notes, null);
@@ -838,7 +834,7 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
           {task.status !== "completed" && (
             <button
               onClick={() => onLog(task)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700/60 hover:border-indigo-500 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700/60 hover:border-indigo-500 transition-all cursor-pointer"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
@@ -873,45 +869,120 @@ const BadgeCard = ({ badge }: { badge: Badge }) => (
       <p className={`text-sm font-semibold ${badge.unlocked ? "text-slate-100" : "text-slate-500"}`}>{badge.name}</p>
       <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{badge.description}</p>
     </div>
-    {!badge.unlocked && badge.progress !== undefined && (
+    {!badge.unlocked && badge.progress !== undefined && badge.total !== undefined && badge.total > 0 && (
       <div className="w-full mt-1">
         <div className="flex justify-between text-xs text-slate-600 mb-1">
           <span>{badge.progress}/{badge.total}</span>
-          <span>{Math.round((badge.progress! / badge.total!) * 100)}%</span>
+          <span>{Math.round((badge.progress / badge.total) * 100)}%</span>
         </div>
         <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-indigo-600/50 rounded-full"
-            style={{ width: `${(badge.progress! / badge.total!) * 100}%` }}
+            style={{ width: `${(badge.progress / badge.total) * 100}%` }}
           />
         </div>
       </div>
     )}
     {badge.unlocked && (
-      <span className="text-xs text-indigo-400 font-medium">✓ Earned</span>
+      <span className="text-xs text-indigo-400 font-medium">✓ Desbloqueado</span>
     )}
   </div>
 );
 
-// ── Performance View ───────────────────────────────────────────────────────
+// ── Performance View (Totalmente Dinâmico a partir dos Dados Reais da API) ──
 
-const PerformanceView = () => {
-  const weekData = [
-    { day: "Mon", planned: 5, actual: 4.5 },
-    { day: "Tue", planned: 6, actual: 6.2 },
-    { day: "Wed", planned: 4, actual: 3.0 },
-    { day: "Thu", planned: 5, actual: 5.5 },
-    { day: "Fri", planned: 6, actual: 4.8 },
-    { day: "Sat", planned: 3, actual: 3.1 },
-    { day: "Sun", planned: 4, actual: 0 },
-  ];
-  const maxH = 8;
+interface PerformanceViewProps {
+  user: UserProfileResponse;
+  tasks: Task[];
+  timeLogs: TimeLogResponse[];
+  userStats: StudyStatsResponse | null;
+}
+
+const PerformanceView = ({ user, tasks, timeLogs, userStats }: PerformanceViewProps) => {
+  // Cálculo dinâmico dos dados semanais
+  const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  
+  // Calcular horas planejadas e reais por dia com base nos dados do usuário
+  const weekData = useMemo(() => {
+    // Inicializa os 7 dias com 0
+    const dayStats = weekDays.map((day) => ({ day, planned: 0, actual: 0 }));
+
+    // Computa tarefas planejadas da semana se possuírem targetDate
+    tasks.forEach((t) => {
+      const plannedH = parseTimeToMinutes(t.plannedTime) / 60;
+      const actualH = t.actualTime ? parseTimeToMinutes(t.actualTime) / 60 : 0;
+      
+      if (t.targetDate) {
+        try {
+          const date = new Date(t.targetDate + "T00:00:00");
+          const dayIndex = (date.getDay() + 6) % 7; // Ajusta para 0 = Segunda
+          if (dayIndex >= 0 && dayIndex < 7) {
+            dayStats[dayIndex].planned += plannedH;
+            dayStats[dayIndex].actual += actualH;
+          }
+        } catch {
+          // fallback
+        }
+      }
+    });
+
+    // Adiciona minutos registrados via timeLogs
+    timeLogs.forEach((log) => {
+      if (log.createdAt) {
+        try {
+          const date = new Date(log.createdAt);
+          const dayIndex = (date.getDay() + 6) % 7;
+          if (dayIndex >= 0 && dayIndex < 7) {
+            dayStats[dayIndex].actual += (log.loggedDurationMinutes || 0) / 60;
+          }
+        } catch {
+          // fallback
+        }
+      }
+    });
+
+    // Formata os números com 1 casa decimal
+    return dayStats.map(d => ({
+      day: d.day,
+      planned: Math.round(d.planned * 10) / 10,
+      actual: Math.round(d.actual * 10) / 10,
+    }));
+  }, [tasks, timeLogs]);
+
+  const maxH = Math.max(4, ...weekData.map(d => Math.max(d.planned, d.actual)));
+  const totalStudyMinutes = userStats?.totalStudyMinutes ?? timeLogs.reduce((acc, l) => acc + (l.loggedDurationMinutes || 0), 0);
+  const totalHoursWeekly = weekData.reduce((acc, d) => acc + d.actual, 0);
+
+  const completedCount = tasks.filter(t => t.status === "completed").length;
+  const totalCount = tasks.length;
+  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const focusScore = totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : 0;
 
   const stats = [
-    { label: "Total Hours This Week", value: "27.1h", sub: "+3.2h vs last week", color: "text-indigo-400" },
-    { label: "Task Completion Rate", value: "84%", sub: "↑ 6% improvement", color: "text-emerald-400" },
-    { label: "Focus Score", value: "92", sub: "Consistency index", color: "text-amber-400" },
-    { label: "XP This Week", value: "+820", sub: "Level up in 180 XP", color: "text-violet-400" },
+    {
+      label: "Horas Estudadas (Semana)",
+      value: `${totalHoursWeekly.toFixed(1)}h`,
+      sub: totalStudyMinutes > 0 ? `${(totalStudyMinutes / 60).toFixed(1)}h acumuladas` : "Sem registros no período",
+      color: "text-indigo-400",
+    },
+    {
+      label: "Taxa de Conclusão",
+      value: `${completionRate}%`,
+      sub: `${completedCount} de ${totalCount} tarefas feitas`,
+      color: "text-emerald-400",
+    },
+    {
+      label: "Índice de Foco",
+      value: `${focusScore}`,
+      sub: "Consistência de estudo",
+      color: "text-amber-400",
+    },
+    {
+      label: "XP Total Acumulado",
+      value: `+${user.currentXp || 0}`,
+      sub: `Nível ${user.level || 1} · ${getLevelTitle(user.level || 1)}`,
+      color: "text-violet-400",
+    },
   ];
 
   return (
@@ -927,30 +998,41 @@ const PerformanceView = () => {
       </div>
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6">
-        <h3 className="text-sm font-semibold text-slate-200 mb-1">Weekly Study Hours</h3>
-        <p className="text-xs text-slate-500 mb-6">Planned vs Actual hours per day</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200 mb-1">Horas Semanais de Estudo</h3>
+            <p className="text-xs text-slate-500">Comparativo: Horas Planejadas vs Horas Executadas por dia</p>
+          </div>
+          {totalHoursWeekly === 0 && (
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/60 text-slate-500 border border-slate-700/40">
+              Sem sessões registradas nesta semana
+            </span>
+          )}
+        </div>
+
         <div className="flex items-end gap-3 h-40">
           {weekData.map((d) => (
             <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
               <div className="w-full flex items-end justify-center gap-1" style={{ height: "120px" }}>
                 <div
                   className="flex-1 rounded-t-md bg-slate-700/50 transition-all"
-                  style={{ height: `${(d.planned / maxH) * 120}px` }}
-                  title={`Planned: ${d.planned}h`}
+                  style={{ height: `${Math.max(2, (d.planned / maxH) * 120)}px` }}
+                  title={`Planejado: ${d.planned}h`}
                 />
                 <div
                   className="flex-1 rounded-t-md bg-indigo-500/70 transition-all"
-                  style={{ height: `${(d.actual / maxH) * 120}px` }}
-                  title={`Actual: ${d.actual}h`}
+                  style={{ height: `${Math.max(2, (d.actual / maxH) * 120)}px` }}
+                  title={`Realizado: ${d.actual}h`}
                 />
               </div>
               <span className="text-xs text-slate-500">{d.day}</span>
             </div>
           ))}
         </div>
+
         <div className="flex items-center gap-4 mt-4">
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-slate-700/50" /><span className="text-xs text-slate-500">Planned</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-indigo-500/70" /><span className="text-xs text-slate-500">Actual</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-slate-700/50" /><span className="text-xs text-slate-500">Planejado</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-indigo-500/70" /><span className="text-xs text-slate-500">Realizado</span></div>
         </div>
       </div>
     </div>
@@ -994,7 +1076,7 @@ interface AddTaskModalProps {
 }
 
 const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskModalProps) => {
-  const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0].id);
+  const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0]?.id ?? 1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("JAVA_BACKEND");
   const [plannedMinutes, setPlannedMinutes] = useState(60);
@@ -1007,7 +1089,7 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
   const [error, setError] = useState("");
 
   const handleAdd = async () => {
-    if (!title.trim()) { setError("Task title is required."); return; }
+    if (!title.trim()) { setError("O título da tarefa é obrigatório."); return; }
     setIsSubmitting(true);
     try {
       await onAdd(selectedQuarter, title.trim(), dueDate, category, plannedMinutes);
@@ -1018,7 +1100,7 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
     }
   };
 
-  const q = quarters.find(q => q.id === selectedQuarter) || quarters[0];
+  const q = quarters.find(q => q.id === selectedQuarter) || quarters[0] || DEFAULT_SEASON_QUARTERS[0];
 
   return (
     <div
@@ -1038,10 +1120,10 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
           <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent)" }} />
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-100">Add Roadmap Task</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Sincroniza com a API REST Spring Boot</p>
+              <h3 className="text-base font-semibold text-slate-100">Criar Nova Tarefa</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Sincroniza diretamente com o banco de dados via Spring Boot</p>
             </div>
-            <button onClick={onClose} disabled={isSubmitting} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all">
+            <button onClick={onClose} disabled={isSubmitting} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800/60 transition-all cursor-pointer">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
           </div>
@@ -1049,14 +1131,14 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
 
         <div className="px-6 pb-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Assign to Quarter</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Estação do Roadmap</label>
             <div className="grid grid-cols-2 gap-2">
               {quarters.map((quarter) => (
                 <button
                   key={quarter.id}
                   type="button"
                   onClick={() => setSelectedQuarter(quarter.id)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                     selectedQuarter === quarter.id
                       ? "border-opacity-60 text-slate-100"
                       : "border-slate-700/40 text-slate-500 hover:border-slate-600 hover:text-slate-400"
@@ -1077,12 +1159,12 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Task Title</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Título da Tarefa</label>
             <input
               type="text"
               value={title}
               onChange={(e) => { setTitle(e.target.value); setError(""); }}
-              placeholder={`e.g., Implement Spring Security OAuth2`}
+              placeholder="Ex: Arquitetura de Microserviços Spring Cloud"
               className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
               style={{
                 background: "rgba(15,18,28,0.8)",
@@ -1096,11 +1178,11 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Category</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Categoria</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
                 style={{
                   background: "rgba(15,18,28,0.8)",
                   border: "1px solid rgba(255,255,255,0.07)",
@@ -1118,12 +1200,12 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Target Due Date</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Data Alvo</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
                 style={{
                   background: "rgba(15,18,28,0.8)",
                   border: "1px solid rgba(255,255,255,0.07)",
@@ -1134,13 +1216,13 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} disabled={isSubmitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all">
-              Cancel
+            <button onClick={onClose} disabled={isSubmitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer">
+              Cancelar
             </button>
             <button
               onClick={handleAdd}
               disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 cursor-pointer"
               style={{
                 background: `linear-gradient(135deg, ${q.accentColor} 0%, ${q.accentColor}cc 100%)`,
                 boxShadow: `0 4px 20px ${q.accentColor}35`,
@@ -1151,7 +1233,7 @@ const AddTaskModal = ({ quarters, defaultQuarterId, onAdd, onClose }: AddTaskMod
               ) : (
                 <>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                  Add to {q.season} · {q.quarter}
+                  Salvar em {q.season} · {q.quarter}
                 </>
               )}
             </button>
@@ -1247,7 +1329,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
               ) : (
                 <button
                   onClick={() => setEditingSubtitle(true)}
-                  className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 group/sub mt-0.5 transition-colors text-left"
+                  className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 group/sub mt-0.5 transition-colors text-left cursor-pointer"
                 >
                   {quarter.subtitle}
                   <span className="opacity-0 group-hover/sub:opacity-100 transition-opacity text-slate-700"><PencilIcon /></span>
@@ -1312,7 +1394,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
             <div className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/3 transition-all">
               <button
                 onClick={() => onTaskUpdate(quarter.id, task.id, { completed: !task.completed })}
-                className="flex-shrink-0 w-4 h-4 rounded-md border flex items-center justify-center transition-all"
+                className="flex-shrink-0 w-4 h-4 rounded-md border flex items-center justify-center transition-all cursor-pointer"
                 style={{
                   borderColor: task.completed ? quarter.accentColor : "rgba(255,255,255,0.15)",
                   background: task.completed ? quarter.accentColor : "transparent",
@@ -1349,28 +1431,28 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 onChange={e => onTaskUpdate(quarter.id, task.id, { dueDate: e.target.value })}
                 className="text-xs font-mono flex-shrink-0 bg-transparent border-0 outline-none cursor-pointer transition-colors"
                 style={{ colorScheme: "dark", color: task.completed ? "#475569" : quarter.accentColor + "cc", width: "94px" }}
-                title="Click to change due date"
+                title="Clique para alterar a data"
               />
 
               <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-all flex-shrink-0">
                 <button
                   onClick={() => onTaskUpdate(quarter.id, task.id, { expanded: !task.expanded })}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/60 transition-all"
-                  title="Expand notes"
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/60 transition-all cursor-pointer"
+                  title="Expandir anotações"
                 >
                   <ChevronIcon open={task.expanded} />
                 </button>
                 <button
                   onClick={() => startEditTask(task)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all"
-                  title="Edit task"
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
+                  title="Editar tarefa"
                 >
                   <PencilIcon />
                 </button>
                 <button
                   onClick={() => onTaskDelete(quarter.id, task.id)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                  title="Delete task"
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                  title="Excluir tarefa"
                 >
                   <TrashIcon />
                 </button>
@@ -1382,7 +1464,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 <textarea
                   value={task.notes}
                   onChange={e => onTaskUpdate(quarter.id, task.id, { notes: e.target.value })}
-                  placeholder="Add notes, sub-goals, or context…"
+                  placeholder="Adicione anotações, subtarefas ou contexto…"
                   rows={2}
                   className="w-full text-xs text-slate-500 bg-transparent outline-none resize-none placeholder-slate-700 leading-relaxed"
                 />
@@ -1394,7 +1476,8 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         {quarter.tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <span className="text-2xl mb-2 opacity-30">{quarter.icon}</span>
-            <p className="text-xs text-slate-600">No tasks yet. Add your first goal.</p>
+            <p className="text-xs text-slate-500">Nenhuma meta cadastrada ainda.</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Adicione sua primeira meta nesta estação.</p>
           </div>
         )}
       </div>
@@ -1403,7 +1486,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
         <div className="h-px mb-3" style={{ background: "rgba(255,255,255,0.04)" }} />
         <button
           onClick={() => onAddTask(quarter.id)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-all border border-dashed"
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-all border border-dashed cursor-pointer hover:bg-white/5"
           style={{
             borderColor: quarter.accentColor + "30",
             color: quarter.accentColor + "99",
@@ -1412,7 +1495,7 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          Add Task
+          Adicionar Meta
         </button>
       </div>
     </div>
@@ -1436,7 +1519,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
     if (!d) return "";
     try {
       const date = new Date(d + "T00:00:00");
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return date.toLocaleDateString("pt-BR", { month: "short", day: "numeric" });
     } catch {
       return d;
     }
@@ -1445,7 +1528,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Yearly Progress</h3>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Progresso Anual</h3>
         <div className="flex items-center gap-3 mb-4">
           <div className="relative w-14 h-14">
             <svg width="56" height="56" viewBox="0 0 56 56" className="rotate-[-90deg]">
@@ -1469,7 +1552,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
           </div>
           <div>
             <p className="text-lg font-bold text-slate-100">{totalCompleted}/{totalTasks}</p>
-            <p className="text-xs text-slate-500">tasks complete</p>
+            <p className="text-xs text-slate-500">metas concluídas</p>
           </div>
         </div>
         <div className="space-y-2">
@@ -1493,7 +1576,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
       </div>
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Upcoming Milestones</h3>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Próximos Marcos</h3>
         <div className="space-y-3">
           {upcoming.map(task => (
             <div key={task.id} className="flex items-start gap-3">
@@ -1507,13 +1590,13 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
             </div>
           ))}
           {upcoming.length === 0 && (
-            <p className="text-xs text-slate-600">All planned tasks completed!</p>
+            <p className="text-xs text-slate-600">Nenhum marco pendente.</p>
           )}
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">XP Projection</h3>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Projeção de XP</h3>
         <div className="space-y-2.5">
           {quarters.map(q => {
             const potential = q.tasks.reduce((sum, t) => sum + (t.xpReward || 80), 0);
@@ -1527,7 +1610,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
           })}
         </div>
         <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
-          <span className="text-xs text-slate-500">Total potential</span>
+          <span className="text-xs text-slate-500">Potencial Total</span>
           <span className="text-sm font-bold font-mono text-indigo-400">
             +{quarters.reduce((acc, q) => acc + q.tasks.reduce((sum, t) => sum + (t.xpReward || 80), 0), 0)} XP
           </span>
@@ -1540,52 +1623,95 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
 // ── Main App ───────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<UserProfileResponse | null>(() => getStoredUser());
+  const [isAuth, setIsAuth] = useState<boolean>(() => isAuthenticated());
   const [activeTab, setActiveTab] = useState<NavTab>("Dashboard");
   const [logTask, setLogTask] = useState<Task | null>(null);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [quarters, setQuarters] = useState<RoadmapQuarter[]>(INITIAL_QUARTERS);
-  const [userProfile, setUserProfile] = useState<UserProfileResponse>(INITIAL_USER);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [quarters, setQuarters] = useState<RoadmapQuarter[]>(DEFAULT_SEASON_QUARTERS);
+  const [timeLogs, setTimeLogs] = useState<TimeLogResponse[]>([]);
+  const [userStats, setUserStats] = useState<StudyStatsResponse | null>(null);
   const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
   const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number }>({ open: false });
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
 
-  const addToast = (toast: Omit<NotificationToast, "id">) => {
+  const addToast = useCallback((toast: Omit<NotificationToast, "id">) => {
     const id = Date.now();
     setToasts(curr => [...curr, { ...toast, id }]);
     setTimeout(() => {
       setToasts(curr => curr.filter(t => t.id !== id));
     }, 4000);
-  };
+  }, []);
 
-  // Carrega Perfil do Usuário e Roadmap por Estação da API REST
-  const loadInitialData = useCallback(async () => {
+  // Carrega Perfil do Usuário e Tarefas do Backend REST Java Spring Boot
+  const loadUserData = useCallback(async (userId: number) => {
+    // 1. Carrega dados atualizados do usuário (/auth/me se autenticado, ou /users/{id})
     try {
-      // 1. Carrega Perfil do Usuário (/users/1)
-      const user = await getUserProfile(1);
+      let user: UserProfileResponse | null = null;
+      if (isAuthenticated()) {
+        try {
+          user = await getMe();
+        } catch {
+          user = await getUserProfile(userId);
+        }
+      } else {
+        user = await getUserProfile(userId);
+      }
+
       if (user) {
-        setUserProfile(user);
+        setCurrentUser(user);
+        setStoredUser(user);
         setIsApiConnected(true);
       }
     } catch (e) {
-      console.info("[StudyOS] Backend Spring Boot offline ou inicializando. Usando dados locais.");
+      console.info("[StudyOS] Backend Spring Boot offline ou inicializando.");
       setIsApiConnected(false);
     }
 
-    // 2. Busca tarefas por estação (/tasks/user/1?season=...)
+    // 2. Busca estatísticas e histórico de tempo do usuário (/users/{id}/stats e /timelogs/user/{id})
+    try {
+      const [statsRes, logsRes] = await Promise.allSettled([
+        getUserStats(userId),
+        getTimeLogsByUser(userId),
+      ]);
+      if (statsRes.status === "fulfilled") {
+        setUserStats(statsRes.value);
+      }
+      if (logsRes.status === "fulfilled" && Array.isArray(logsRes.value)) {
+        setTimeLogs(logsRes.value);
+      }
+    } catch (e) {
+      console.warn("[StudyOS] Erro ao sincronizar estatísticas de estudo:", e);
+    }
+
+    // 3. Busca todas as tarefas do usuário autenticado para o Dashboard (/tasks/user/{id})
+    try {
+      const userTasks = await getTasks(userId);
+      if (Array.isArray(userTasks) && userTasks.length > 0) {
+        setTasks(userTasks.map((t, idx) => mapBackendTaskToDashboard(t, idx)));
+      } else {
+        setTasks([]);
+      }
+    } catch (e) {
+      console.warn("[StudyOS] Erro ao sincronizar tarefas do Dashboard:", e);
+      setTasks([]);
+    }
+
+    // 4. Busca tarefas por estação do usuário autenticado (/tasks/user/{id}?season=...)
     try {
       const seasons: Season[] = ["SUMMER", "AUTUMN", "WINTER", "SPRING"];
       const seasonResults = await Promise.allSettled(
-        seasons.map(s => getTasksBySeason(s, 1))
+        seasons.map(s => getTasksBySeason(s, userId))
       );
 
-      setQuarters(prevQuarters =>
-        prevQuarters.map((q, idx) => {
+      setQuarters(
+        DEFAULT_SEASON_QUARTERS.map((q, idx) => {
           const res = seasonResults[idx];
           if (res.status === "fulfilled" && Array.isArray(res.value) && res.value.length > 0) {
             const apiTasks: MacroTask[] = res.value.map(t => ({
               id: t.id,
               title: t.title,
-              dueDate: t.targetDate || "2026-12-31",
+              dueDate: t.targetDate || new Date().toISOString().split("T")[0],
               completed: t.status === "COMPLETED",
               expanded: false,
               notes: t.description || "",
@@ -1596,28 +1722,100 @@ export default function App() {
             }));
             return { ...q, tasks: apiTasks };
           }
-          return q;
+          return { ...q, tasks: [] };
         })
       );
     } catch (e) {
       console.warn("[StudyOS] Erro ao sincronizar estações do Roadmap:", e);
+      setQuarters(DEFAULT_SEASON_QUARTERS);
     }
   }, []);
 
   useEffect(() => {
-    loadInitialData();
+    const user = getStoredUser();
+    const authenticated = isAuthenticated();
+
+    if (authenticated && user) {
+      setCurrentUser(user);
+      setIsAuth(true);
+      loadUserData(user.id);
+    } else {
+      setIsAuth(false);
+      setCurrentUser(null);
+    }
+
+    // Listener para tratar respostas 401/403 e redirecionar imediatamente para AuthPage
+    const unsubscribe = onUnauthorized(() => {
+      setIsAuth(false);
+      setCurrentUser(null);
+      setTasks([]);
+      setQuarters(DEFAULT_SEASON_QUARTERS);
+      setLogTask(null);
+      setAddTaskModal({ open: false });
+      addToast({
+        type: "error",
+        title: "Sessão Expirada",
+        message: "Sua autenticação expirou. Por favor, acesse novamente.",
+      });
+    });
+
     const interval = setInterval(() => {
       checkApiHealth().then(online => setIsApiConnected(online));
     }, 30000);
-    return () => clearInterval(interval);
-  }, [loadInitialData]);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [loadUserData, addToast]);
+
+  // Função disparada no sucesso do Login/Cadastro na AuthPage
+  const handleAuthSuccess = (user: UserProfileResponse) => {
+    setCurrentUser(user);
+    setIsAuth(true);
+    setActiveTab("Dashboard");
+    addToast({
+      type: "success",
+      title: "Bem-vindo ao StudyOS!",
+      message: `Login realizado com sucesso como ${user.name}.`,
+    });
+    loadUserData(user.id);
+  };
+
+  // Função de encerramento de sessão (Logout)
+  const handleLogout = () => {
+    logout();
+    setCurrentUser(null);
+    setIsAuth(false);
+    setTasks([]);
+    setQuarters(DEFAULT_SEASON_QUARTERS);
+    setTimeLogs([]);
+    setUserStats(null);
+    setLogTask(null);
+    setAddTaskModal({ open: false });
+    addToast({
+      type: "info",
+      title: "Sessão Encerrada",
+      message: "Você saiu da sua conta StudyOS. O token JWT foi removido.",
+    });
+  };
 
   // Atualizar Quarter localmente
   const updateQuarter = (id: number, patch: Partial<RoadmapQuarter>) =>
     setQuarters(qs => qs.map(q => q.id === id ? { ...q, ...patch } : q));
 
-  // Atualizar Tarefa / Toggle Completed
+  // Atualizar Tarefa / Toggle Completed / Editar dados com validação de Auth
   const handleTaskUpdate = async (qId: number, tId: number, patch: Partial<MacroTask>) => {
+    if (!currentUser || !isAuthenticated()) {
+      addToast({
+        type: "error",
+        title: "Não autorizado",
+        message: "Você precisa estar autenticado para atualizar tarefas.",
+      });
+      handleLogout();
+      return;
+    }
+
     setQuarters(qs => qs.map(q => q.id === qId ? {
       ...q, tasks: q.tasks.map(t => t.id === tId ? { ...t, ...patch } : t)
     } : q));
@@ -1628,13 +1826,14 @@ export default function App() {
         await updateTaskStatus(tId, newStatus);
         // Atualiza usuário e XP após completar
         if (patch.completed) {
-          const updatedUser = await getUserProfile(1).catch(() => null);
+          const updatedUser = await getUserProfile(currentUser.id).catch(() => null);
           if (updatedUser) {
-            setUserProfile(updatedUser);
+            setCurrentUser(updatedUser);
+            setStoredUser(updatedUser);
             addToast({
               type: "xp",
               title: "Task Concluída!",
-              message: `Status atualizado no backend. XP sincronizado!`,
+              message: "Status atualizado no banco de dados. XP sincronizado!",
               xp: 80,
             });
           }
@@ -1643,10 +1842,33 @@ export default function App() {
         console.warn("Update task status via API failed, keeping local state:", err);
       }
     }
+
+    if (patch.title !== undefined || patch.dueDate !== undefined || patch.notes !== undefined || patch.category !== undefined) {
+      try {
+        await updateTask(tId, {
+          title: patch.title,
+          targetDate: patch.dueDate,
+          description: patch.notes,
+          category: patch.category,
+        });
+      } catch (err) {
+        console.warn("Update task details via API failed, keeping local state:", err);
+      }
+    }
   };
 
-  // Excluir Tarefa (/tasks/{id})
+  // Excluir Tarefa (/tasks/{id}) com validação de Auth
   const handleTaskDelete = async (qId: number, tId: number) => {
+    if (!currentUser || !isAuthenticated()) {
+      addToast({
+        type: "error",
+        title: "Não autorizado",
+        message: "Você precisa estar autenticado para excluir tarefas.",
+      });
+      handleLogout();
+      return;
+    }
+
     setQuarters(qs => qs.map(q => q.id === qId ? { ...q, tasks: q.tasks.filter(t => t.id !== tId) } : q));
     setTasks(ts => ts.filter(t => t.id !== tId));
 
@@ -1655,21 +1877,31 @@ export default function App() {
       addToast({
         type: "info",
         title: "Tarefa Excluída",
-        message: `A tarefa #${tId} foi removida da base de dados.`,
+        message: `A tarefa #${tId} foi removida com sucesso.`,
       });
     } catch (err) {
       console.warn("Delete task via API failed:", err);
     }
   };
 
-  // Criar Tarefa (/tasks)
+  // Criar Tarefa (/tasks) com validação de Auth e userId ativo
   const handleAddTask = async (quarterId: number, title: string, dueDate: string, category: string = "JAVA_BACKEND", plannedMinutes: number = 60) => {
-    const quarter = quarters.find(q => q.id === quarterId) || quarters[0];
+    if (!currentUser || !isAuthenticated()) {
+      addToast({
+        type: "error",
+        title: "Não autorizado",
+        message: "Você precisa estar autenticado para criar tarefas.",
+      });
+      handleLogout();
+      return;
+    }
+
+    const quarter = quarters.find(q => q.id === quarterId) || quarters[0] || DEFAULT_SEASON_QUARTERS[0];
     const xpReward = Math.max(50, Math.round(plannedMinutes * 1.2));
 
     try {
       const createdTask = await createTask({
-        userId: 1,
+        userId: currentUser.id,
         title,
         season: quarter.seasonKey,
         category,
@@ -1692,7 +1924,6 @@ export default function App() {
 
       setQuarters(qs => qs.map(q => q.id === quarterId ? { ...q, tasks: [...q.tasks, newTask] } : q));
 
-      // Sincroniza também no dashboard se for de hoje/recente
       const dashboardTask: Task = {
         id: newTask.id,
         category: (createdTask.category || category).replace(/_/g, " "),
@@ -1705,22 +1936,26 @@ export default function App() {
         timeStart: "10:00",
         timeEnd: "11:30",
         xpReward,
+        targetDate: dueDate,
       };
       setTasks(ts => [...ts, dashboardTask]);
 
       addToast({
         type: "success",
         title: "Tarefa Criada com Sucesso!",
-        message: `"${title}" adicionada à estação ${quarter.season}.`,
+        message: `"${title}" salva na estação ${quarter.season}.`,
       });
     } catch (err: any) {
-      console.warn("Create task via API failed, creating locally:", err);
-      const newTask: MacroTask = { id: Date.now(), title, dueDate, completed: false, expanded: false, notes: "", category, plannedMinutes, xpReward };
-      setQuarters(qs => qs.map(q => q.id === quarterId ? { ...q, tasks: [...q.tasks, newTask] } : q));
+      console.warn("Create task via API failed:", err);
+      addToast({
+        type: "error",
+        title: "Erro ao criar tarefa",
+        message: err?.message || "Não foi possível conectar ao banco de dados.",
+      });
     }
   };
 
-  // Callback após registrar tempo e receber XP atualizado do Spring Boot
+  // Callback após registrar tempo e receber XP atualizado do Spring Boot com validação de Auth
   const handleTimeLogged = (
     taskId: number,
     actualMins: number,
@@ -1728,6 +1963,16 @@ export default function App() {
     notes: string,
     updatedUser: UserProfileResponse | null
   ) => {
+    if (!currentUser || !isAuthenticated()) {
+      addToast({
+        type: "error",
+        title: "Não autorizado",
+        message: "Você precisa estar autenticado para registrar tempo.",
+      });
+      handleLogout();
+      return;
+    }
+
     // 1. Atualiza estado da tarefa no Dashboard
     setTasks(ts =>
       ts.map(t => {
@@ -1761,64 +2006,94 @@ export default function App() {
       }))
     );
 
-    // 3. Atualiza dados de XP e Nível do Usuário no Header
+    // 3. Atualiza dados de XP e Nível do Usuário
     if (updatedUser) {
-      setUserProfile(updatedUser);
+      setCurrentUser(updatedUser);
+      setStoredUser(updatedUser);
     } else {
-      // Fallback otimista
       const xpMultiplier = status === "complete" ? 1 : status === "partial" ? 0.6 : 0.25;
       const targetTask = tasks.find(t => t.id === taskId);
       const xpEarned = Math.round((targetTask?.xpReward || 80) * xpMultiplier);
-      setUserProfile(prev => {
+      setCurrentUser(prev => {
+        if (!prev) return null;
         const nextXp = prev.currentXp + xpEarned;
         const nextLevel = Math.floor(nextXp / 500) + 1;
-        return { ...prev, currentXp: nextXp, level: nextLevel };
+        const updated = { ...prev, currentXp: nextXp, level: nextLevel };
+        setStoredUser(updated);
+        return updated;
       });
     }
 
     addToast({
       type: "xp",
       title: "Tempo Registrado com Sucesso!",
-      message: `${actualMins} minutos computados. Ganho de XP creditado.`,
+      message: `${actualMins} minutos computados no banco de dados. XP creditado.`,
     });
   };
 
+  const renderToasts = () => (
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+      {toasts.map(toast => (
+        <div
+          key={toast.id}
+          className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-xl animate-fade-in"
+          style={{
+            background: "rgba(18, 21, 31, 0.95)",
+            backdropFilter: "blur(12px)",
+            borderColor: toast.type === "xp" ? "rgba(99,102,241,0.5)" : toast.type === "success" ? "rgba(16,185,129,0.5)" : "rgba(255,255,255,0.1)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+          }}
+        >
+          <span className="text-lg">
+            {toast.type === "xp" ? "⚡" : toast.type === "success" ? "✅" : "ℹ️"}
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-slate-100">{toast.title}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{toast.message}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ── TRAVA DE AUTENTICAÇÃO (AUTH GATE) ──
+  // Se o usuário NÃO estiver logado: renderiza EXCLUSIVAMENTE a tela AuthPage.
+  if (!isAuth || !currentUser) {
+    return (
+      <div className="min-h-screen w-full" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+        {renderToasts()}
+        <AuthPage onAuthSuccess={handleAuthSuccess} />
+      </div>
+    );
+  }
+
+  // ── APLICAÇÃO AUTENTICADA (DASHBOARD COMPLETO E 100% DINÂMICO) ──
+  const user = currentUser;
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const totalCount = tasks.length;
-  const todayDate = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const todayDate = new Date().toLocaleDateString("pt-BR", { weekday: "long", month: "long", day: "numeric" });
 
-  const currentLevel = userProfile.level;
-  const currentXpInLevel = userProfile.currentXp % 500;
+  const currentLevel = user.level || 1;
+  const currentXpInLevel = (user.currentXp || 0) % 500;
   const maxXpInLevel = 500;
+
+  // Cálculos dinâmicos para o Dashboard
+  const totalPlannedMinutesToday = tasks.reduce((sum, t) => sum + parseTimeToMinutes(t.plannedTime), 0);
+  const totalActualMinutesToday = tasks.reduce((sum, t) => sum + (t.actualTime ? parseTimeToMinutes(t.actualTime) : 0), 0);
+  const totalStudyMinutesOverall = userStats?.totalStudyMinutes ?? timeLogs.reduce((acc, l) => acc + (l.loggedDurationMinutes || 0), 0);
+
+  // Conquistas calculadas dinamicamente
+  const dynamicBadges = calculateDynamicBadges(currentUser, tasks, totalStudyMinutesOverall);
+  const earnedBadgesCount = dynamicBadges.filter(b => b.unlocked).length;
+
+  const pendingTasks = tasks.filter(t => t.status === "pending" || t.status === "in-progress");
+  const completedTasksToday = tasks.filter(t => t.status === "completed");
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {renderToasts()}
 
-      {/* Toast Notifications */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-xl animate-fade-in"
-            style={{
-              background: "rgba(18, 21, 31, 0.95)",
-              backdropFilter: "blur(12px)",
-              borderColor: toast.type === "xp" ? "rgba(99,102,241,0.5)" : toast.type === "success" ? "rgba(16,185,129,0.5)" : "rgba(255,255,255,0.1)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            }}
-          >
-            <span className="text-lg">
-              {toast.type === "xp" ? "⚡" : toast.type === "success" ? "✅" : "ℹ️"}
-            </span>
-            <div>
-              <p className="text-xs font-semibold text-slate-100">{toast.title}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{toast.message}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Header */}
+      {/* Header Autenticado */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-6 h-14 border-b border-slate-800/60"
         style={{ background: "rgba(12,14,21,0.92)", backdropFilter: "blur(12px)" }}
@@ -1839,7 +2114,7 @@ export default function App() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
                   activeTab === tab
                     ? "bg-slate-800 text-slate-100"
                     : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
@@ -1851,7 +2126,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Right: User info & API status */}
+        {/* Right: User info, XP, & Logout Button */}
         <div className="flex items-center gap-4">
           {/* API Connection Indicator */}
           <div
@@ -1864,13 +2139,13 @@ export default function App() {
             title={isApiConnected ? "Conectado ao Spring Boot REST (http://localhost:8080/api/v1)" : "Modo Offline (Backend Spring Boot não detectado em localhost:8080)"}
           >
             <span className={`w-2 h-2 rounded-full ${isApiConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-            <span>{isApiConnected ? "API Spring Boot" : "Offline Mode"}</span>
+            <span>{isApiConnected ? "API Spring Boot" : "Offline"}</span>
           </div>
 
           {/* Streak */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30">
             <span className="text-sm">🔥</span>
-            <span className="text-xs font-semibold text-amber-400">{userProfile.streakDays} Days</span>
+            <span className="text-xs font-semibold text-amber-400">{user.streakDays || 0} Dias</span>
           </div>
 
           {/* XP Bar */}
@@ -1883,19 +2158,39 @@ export default function App() {
             <XPBar current={currentXpInLevel} max={maxXpInLevel} />
           </div>
 
-          {/* Avatar */}
-          <div className="relative" title={`${userProfile.name} (${userProfile.email})`}>
+          {/* User Avatar */}
+          <div
+            className="relative flex items-center gap-2 pl-2 border-l border-slate-800"
+            title={`${user.name} (${user.email})`}
+          >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20">
-              {userProfile.name ? userProfile.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "AK"}
+              {user.name ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "US"}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900" />
+            <div className="hidden md:block text-left">
+              <p className="text-xs font-semibold text-slate-200 leading-tight truncate max-w-[120px]">{user.name}</p>
+              <p className="text-[10px] text-slate-500 truncate max-w-[120px]">{user.email}</p>
+            </div>
+            <div className="absolute top-0 left-8 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
           </div>
+
+          {/* Botão de Logout ("Sair") */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/20 bg-red-950/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all text-xs font-medium cursor-pointer"
+            title="Sair da conta e retornar à tela de login"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span className="hidden sm:inline">Sair</span>
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
-
         {activeTab === "Dashboard" && (
           <div className="grid grid-cols-3 gap-6">
             {/* Left Column — Timeline */}
@@ -1903,12 +2198,12 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-semibold text-slate-100">Today's Schedule</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">{todayDate}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 capitalize">{todayDate}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Completed</p>
-                    <p className="text-sm font-semibold text-slate-200">{completedCount}/{totalCount} tasks</p>
+                    <p className="text-xs text-slate-500">Concluídas</p>
+                    <p className="text-sm font-semibold text-slate-200">{completedCount}/{totalCount} tarefas</p>
                   </div>
                   <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#6366F1 ${totalCount > 0 ? (completedCount/totalCount)*360 : 0}deg, #1e293b 0)` }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#0c0e15" }}>
@@ -1918,23 +2213,66 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Task Cards */}
+              {/* Task Cards & Empty State */}
               <div className="space-y-3">
                 {tasks.map((task) => (
                   <TaskCard key={task.id} task={task} onLog={setLogTask} />
                 ))}
+
+                {tasks.length === 0 && (
+                  <div className="p-10 text-center rounded-2xl border border-slate-800/60 bg-slate-900/30 flex flex-col items-center justify-center">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl mb-4 text-indigo-400 shadow-inner">
+                      🎯
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-200">Nenhuma tarefa cadastrada para hoje</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed mb-5">
+                      Seu cronograma de hoje está livre. Adicione suas metas de estudo no StudyOS para começar a registrar tempo e acumular XP.
+                    </p>
+                    <button
+                      onClick={() => setAddTaskModal({ open: true })}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
+                      style={{
+                        background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
+                        boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Criar primeira tarefa
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Right Column — Stats sidebar */}
             <div className="space-y-4">
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Daily Progress</h3>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Progresso Diário</h3>
                 <div className="space-y-3">
                   {[
-                    { label: "Study Time", value: "4h 35m", target: "6h 00m", pct: 76, color: "#6366F1" },
-                    { label: "Tasks Done", value: `${completedCount} / ${totalCount}`, target: `${totalCount} tasks`, pct: totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0, color: "#10B981" },
-                    { label: "Focus Score", value: "87 / 100", target: "100", pct: 87, color: "#F97316" },
+                    {
+                      label: "Tempo de Estudo",
+                      value: formatMinutesToHm(totalActualMinutesToday),
+                      target: formatMinutesToHm(totalPlannedMinutesToday || 60),
+                      pct: totalPlannedMinutesToday > 0 ? Math.min(Math.round((totalActualMinutesToday / totalPlannedMinutesToday) * 100), 100) : (totalActualMinutesToday > 0 ? 100 : 0),
+                      color: "#6366F1",
+                    },
+                    {
+                      label: "Tarefas Feitas",
+                      value: `${completedCount} / ${totalCount}`,
+                      target: `${totalCount} ${totalCount === 1 ? "tarefa" : "tarefas"}`,
+                      pct: totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0,
+                      color: "#10B981",
+                    },
+                    {
+                      label: "Score de Foco",
+                      value: `${totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0} / 100`,
+                      target: "100",
+                      pct: totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0,
+                      color: "#F97316",
+                    },
                   ].map((item) => (
                     <div key={item.label}>
                       <div className="flex justify-between text-xs mb-1.5">
@@ -1943,7 +2281,7 @@ export default function App() {
                       </div>
                       <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full rounded-full transition-all duration-500"
                           style={{ width: `${item.pct}%`, background: item.color }}
                         />
                       </div>
@@ -1952,43 +2290,47 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Upcoming */}
+              {/* Up Next */}
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Up Next</h3>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Próximas Tarefas</h3>
                 <div className="space-y-3">
-                  {tasks.filter(t => t.status === "pending" || t.status === "in-progress").slice(0, 3).map((t) => (
+                  {pendingTasks.slice(0, 3).map((t) => (
                     <div key={t.id} className="flex items-start gap-3">
                       <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: t.categoryColor }} />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-slate-300 truncate">{t.title}</p>
                         <p className="text-xs text-slate-600 font-mono">{t.timeStart} · {t.plannedTime}</p>
                       </div>
                     </div>
                   ))}
+                  {pendingTasks.length === 0 && (
+                    <p className="text-xs text-slate-600">Nenhuma tarefa pendente no momento.</p>
+                  )}
                 </div>
               </div>
 
-              {/* Recent XP */}
+              {/* XP Activity */}
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">XP Activity</h3>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Atividade de XP Hoje</h3>
                 <div className="space-y-2.5">
-                  {[
-                    { label: "Morning Workout", xp: "+80", time: "07:35" },
-                    { label: "Spring Boot Study", xp: "+120", time: "09:30" },
-                    { label: "Streak Bonus", xp: "+50", time: "08:00" },
-                  ].map((entry) => (
-                    <div key={entry.label} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-slate-400">{entry.label}</p>
-                        <p className="text-xs text-slate-600 font-mono">{entry.time}</p>
+                  {completedTasksToday.slice(0, 3).map((t) => (
+                    <div key={t.id} className="flex items-center justify-between">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs text-slate-300 truncate">{t.title}</p>
+                        <p className="text-[11px] text-slate-600 font-mono">{t.actualTime || t.plannedTime} · {t.category}</p>
                       </div>
-                      <span className="text-xs font-semibold font-mono text-indigo-400">{entry.xp}</span>
+                      <span className="text-xs font-semibold font-mono text-indigo-400">+{t.xpReward} XP</span>
                     </div>
                   ))}
+                  {completedTasksToday.length === 0 && (
+                    <p className="text-xs text-slate-600">Nenhuma atividade com XP hoje.</p>
+                  )}
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-slate-500">Total today</span>
-                  <span className="text-sm font-bold font-mono text-indigo-400">+{tasks.filter(t => t.status === "completed").reduce((acc, t) => acc + t.xpReward, 250)} XP</span>
+                  <span className="text-xs text-slate-500">Total ganho hoje</span>
+                  <span className="text-sm font-bold font-mono text-indigo-400">
+                    +{completedTasksToday.reduce((acc, t) => acc + (t.xpReward || 0), 0)} XP
+                  </span>
                 </div>
               </div>
             </div>
@@ -1999,9 +2341,14 @@ export default function App() {
           <div>
             <div className="mb-6">
               <h1 className="text-lg font-semibold text-slate-100">Performance Overview</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Week of Aug 25 – Aug 31, 2026</p>
+              <p className="text-xs text-slate-500 mt-0.5">Histórico e métricas de desempenho calculadas em tempo real</p>
             </div>
-            <PerformanceView />
+            <PerformanceView
+              user={user}
+              tasks={tasks}
+              timeLogs={timeLogs}
+              userStats={userStats}
+            />
           </div>
         )}
 
@@ -2009,18 +2356,18 @@ export default function App() {
           <div>
             <div className="mb-6 flex items-end justify-between">
               <div>
-                <h1 className="text-lg font-semibold text-slate-100">Achievements</h1>
+                <h1 className="text-lg font-semibold text-slate-100">Achievements &amp; Conquistas</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {BADGES.filter(b => b.unlocked).length} of {BADGES.length} badges earned
+                  {earnedBadgesCount} de {dynamicBadges.length} conquistas desbloqueadas
                 </p>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-900/40 bg-amber-950/20">
                 <span className="text-amber-400 text-sm">🏆</span>
-                <span className="text-xs font-medium text-amber-400">4 Earned</span>
+                <span className="text-xs font-medium text-amber-400">{earnedBadgesCount} Desbloqueadas</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              {BADGES.map((badge) => <BadgeCard key={badge.id} badge={badge} />)}
+              {dynamicBadges.map((badge) => <BadgeCard key={badge.id} badge={badge} />)}
             </div>
           </div>
         )}
@@ -2031,11 +2378,11 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-lg font-semibold text-slate-100">Yearly Roadmap</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">4 seasonal quarters · sincronizado com a API Spring Boot</p>
+                  <p className="text-xs text-slate-500 mt-0.5">4 estações sazonais sincronizadas diretamente com o banco de dados</p>
                 </div>
                 <button
                   onClick={() => setAddTaskModal({ open: true })}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
                   style={{
                     background: "linear-gradient(135deg, #6366F1 0%, #4f46e5 100%)",
                     boxShadow: "0 4px 16px rgba(99,102,241,0.35)",
@@ -2044,7 +2391,7 @@ export default function App() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M12 5v14M5 12h14" />
                   </svg>
-                  Add New Task
+                  Adicionar Tarefa
                 </button>
               </div>
 
@@ -2071,8 +2418,9 @@ export default function App() {
       {logTask && (
         <TimeLogModal
           task={logTask}
-          userXp={userProfile.currentXp}
-          userLevel={userProfile.level}
+          userXp={user.currentXp || 0}
+          userLevel={user.level || 1}
+          userId={user.id}
           onClose={() => setLogTask(null)}
           onTimeLogged={handleTimeLogged}
         />
