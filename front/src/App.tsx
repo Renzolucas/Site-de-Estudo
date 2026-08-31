@@ -25,11 +25,12 @@ import api, {
   type Season,
 } from "./services/api";
 import AuthPage from "./components/AuthPage";
+import Leaderboard from "./components/Leaderboard";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TaskStatus = "completed" | "partial" | "in-progress" | "pending";
-type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap";
+type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard";
 
 interface MacroTask {
   id: number;
@@ -2110,17 +2111,17 @@ export default function App() {
           </div>
 
           <nav className="flex items-center gap-1">
-            {(["Dashboard", "Performance", "Badges", "Roadmap"] as NavTab[]).map((tab) => (
+            {(["Dashboard", "Performance", "Badges", "Roadmap", "Leaderboard"] as NavTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
                   activeTab === tab
-                    ? "bg-slate-800 text-slate-100"
+                    ? "bg-slate-800 text-slate-100 shadow-sm"
                     : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
                 }`}
               >
-                {tab}
+                {tab === "Leaderboard" ? "Ranking 🏆" : tab}
               </button>
             ))}
           </nav>
@@ -2411,6 +2412,10 @@ export default function App() {
 
             <RoadmapSidebar quarters={quarters} />
           </div>
+        )}
+
+        {activeTab === "Leaderboard" && (
+          <Leaderboard currentUserId={user.id} />
         )}
       </main>
 
