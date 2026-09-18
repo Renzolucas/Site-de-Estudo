@@ -1,11 +1,11 @@
 /**
  * StudyOS Frontend - Typed API Integration Service
- * Conexão com o backend REST Java Spring Boot (http://localhost:8080/api)
+ * Conexão com o backend REST Java Spring Boot (http://localhost:8080/api/v1)
  */
 
 export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL 
-  : 'https://site-de-estudo-production.up.railway.app/api/v1';
+  : 'http://localhost:8080/api/v1';
 
 export const DEFAULT_USER_ID = 1;
 
@@ -118,6 +118,7 @@ export interface UserProfileResponse {
   level: number;
   currentXp: number;
   streakDays: number;
+  frozenCount?: number;
 }
 
 export interface StudyStatsResponse {
@@ -126,6 +127,7 @@ export interface StudyStatsResponse {
   streakDays: number;
   currentXp: number;
   level: number;
+  frozenCount?: number;
 }
 
 export interface LeaderboardUserResponse {
@@ -134,6 +136,7 @@ export interface LeaderboardUserResponse {
   level: number;
   currentXp: number;
   streakDays: number;
+  frozenCount?: number;
 }
 
 import authService, {
@@ -259,6 +262,17 @@ export async function getTaskById(taskId: number): Promise<TaskResponse> {
 }
 
 /**
+ * Retorna a data local no formato YYYY-MM-DD sem distorção de fuso horário UTC (evita avanço para o dia seguinte às 23:59).
+ */
+export function getLocalDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Cria uma nova tarefa ou macro-tarefa.
  */
 export async function createTask(taskData: TaskCreatePayload): Promise<TaskResponse> {
@@ -316,7 +330,7 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
     category: validCategory,
     season: validSeason,
     plannedDurationMinutes: Number(taskData.plannedDurationMinutes || taskData.plannedMinutes || 60),
-    targetDate: taskData.targetDate || taskData.dueDate || new Date().toISOString().split('T')[0],
+    targetDate: taskData.targetDate || taskData.dueDate || getLocalDateString(),
     xpReward: Number(taskData.xpReward !== undefined ? taskData.xpReward : 80),
   };
 

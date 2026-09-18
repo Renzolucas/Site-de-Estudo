@@ -21,6 +21,7 @@ import api, {
   formatTaskStatus,
   formatSeason,
   DEFAULT_USER_ID,
+  API_BASE_URL,
   type TaskResponse,
   type UserProfileResponse,
   type StudyStatsResponse,
@@ -322,6 +323,15 @@ const calculateDynamicBadges = (
       unlocked: totalTasks >= 10,
       progress: Math.min(totalTasks, 10),
       total: 10,
+    },
+    {
+      id: 9,
+      icon: "🧊",
+      name: "Guardião Congelado",
+      description: "Atinja o marco de 30 dias de sequência para conquistar Frozen",
+      unlocked: streak >= 30 || (user?.frozenCount || 0) >= 1,
+      progress: Math.min(streak, 30),
+      total: 30,
     },
   ];
 };
@@ -1014,7 +1024,7 @@ const PerformanceView = ({ user, tasks, timeLogs, userStats }: PerformanceViewPr
     {
       label: "XP Total Acumulado",
       value: `+${user.currentXp || 0}`,
-      sub: `Nível ${user.level || 1} · ${getLevelTitle(user.level || 1)}`,
+      sub: `Nível ${user.level || 1} · 🔥 ${user.streakDays || 0}d${(user.frozenCount || 0) > 0 ? ` · 🧊 ${user.frozenCount} Frozen` : ""}`,
       color: "text-violet-400",
     },
   ];
@@ -1750,7 +1760,7 @@ export default function App() {
             const apiTasks: MacroTask[] = res.value.map(t => ({
               id: t.id,
               title: t.title,
-              dueDate: t.targetDate || new Date().toISOString().split("T")[0],
+              dueDate: t.targetDate || getTodayIsoDate(),
               completed: t.status === "COMPLETED",
               expanded: false,
               notes: t.description || "",
@@ -1875,8 +1885,8 @@ export default function App() {
             addToast({
               type: "xp",
               title: "Tarefa Concluída!",
-              message: "Status atualizado no banco de dados. XP sincronizado!",
-              xp: 80,
+              message: `Status salvo no banco. Streak: ${updatedUser.streakDays || 0}d 🔥${updatedUser.frozenCount ? ` · ${updatedUser.frozenCount} Frozen 🧊` : ""}`,
+              xp: patch.xpReward !== undefined ? patch.xpReward : 80,
             });
           }
         }
@@ -2060,16 +2070,29 @@ export default function App() {
         if (!prev) return null;
         const nextXp = prev.currentXp + xpEarned;
         const nextLevel = Math.floor(nextXp / 500) + 1;
-        const updated = { ...prev, currentXp: nextXp, level: nextLevel };
+        const nextStreak = (status === "complete" && xpEarned > 0) ? (prev.streakDays || 0) + 1 : (prev.streakDays || 0);
+        const nextFrozen = Math.floor(nextStreak / 30);
+        const updated = {
+          ...prev,
+          currentXp: nextXp,
+          level: nextLevel,
+          streakDays: nextStreak,
+          frozenCount: Math.max(prev.frozenCount || 0, nextFrozen),
+        };
         setStoredUser(updated);
         return updated;
       });
     }
 
+    const userForStreak = updatedUser || currentUser;
+    const streakInfo = (status === "complete" && userForStreak)
+      ? ` · Streak: ${userForStreak.streakDays || 0}d 🔥${userForStreak.frozenCount ? ` · ${userForStreak.frozenCount} Frozen 🧊` : ""}`
+      : "";
+
     addToast({
       type: "xp",
-      title: "Tempo Registrado com Sucesso!",
-      message: `${actualMins} minutos computados no banco de dados. XP creditado.`,
+      title: status === "complete" ? "Lição Concluída!" : "Tempo Registrado com Sucesso!",
+      message: `${actualMins} minutos computados no banco de dados. XP creditado.${streakInfo}`,
     });
   };
 
@@ -2207,9 +2230,21 @@ export default function App() {
               </div>
 
               {/* Streak */}
-              <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30">
+              <div
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30"
+                title={`${user.streakDays || 0} dias consecutivos de streak`}
+              >
                 <span className="text-xs sm:text-sm">🔥</span>
                 <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">{user.streakDays || 0}d</span>
+              </div>
+
+              {/* Frozen (Streak Freeze) */}
+              <div
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-cyan-900/50 bg-cyan-950/30"
+                title={`Proteção de Streak: ${user.frozenCount || 0} Frozen (+1 a cada 30 dias de streak)`}
+              >
+                <span className="text-xs sm:text-sm">🧊</span>
+                <span className="text-xs font-semibold text-cyan-300 whitespace-nowrap">{user.frozenCount || 0}</span>
               </div>
 
               {/* XP Bar (visible on lg+) */}
