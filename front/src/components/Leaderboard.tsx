@@ -241,6 +241,11 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
               <div className="flex items-center gap-1 text-amber-400">
                 <span>🔥</span>
                 <span className="font-semibold">{top2.streakDays || 0}d</span>
+                {(top2.frozenCount ?? 0) > 0 && (
+                  <span className="ml-1 text-cyan-300 font-semibold flex items-center gap-0.5" title={`Proteção de Streak: ${top2.frozenCount} Frozen`}>
+                    <span>🧊</span>{top2.frozenCount}
+                  </span>
+                )}
               </div>
               <div className="font-mono font-bold text-slate-200 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/50">
                 {top2.currentXp?.toLocaleString() || 0} XP
@@ -294,9 +299,14 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
 
             {/* Streak & XP */}
             <div className="w-full mt-5 pt-3.5 border-t border-amber-500/20 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1 text-amber-400 bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-500/30">
+              <div className="flex items-center gap-1.5 text-amber-400 bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-500/30">
                 <span>🔥</span>
                 <span className="font-bold">{top1.streakDays || 0} Dias Streak</span>
+                {(top1.frozenCount ?? 0) > 0 && (
+                  <span className="ml-1 text-cyan-300 font-bold flex items-center gap-0.5" title={`Proteção de Streak: ${top1.frozenCount} Frozen`}>
+                    <span>🧊</span>{top1.frozenCount}
+                  </span>
+                )}
               </div>
               <div className="font-mono font-extrabold text-amber-300 bg-amber-500/20 px-3 py-1 rounded-lg border border-amber-400/40 shadow-inner">
                 {top1.currentXp?.toLocaleString() || 0} XP
@@ -344,6 +354,11 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
               <div className="flex items-center gap-1 text-amber-400">
                 <span>🔥</span>
                 <span className="font-semibold">{top3.streakDays || 0}d</span>
+                {(top3.frozenCount ?? 0) > 0 && (
+                  <span className="ml-1 text-cyan-300 font-semibold flex items-center gap-0.5" title={`Proteção de Streak: ${top3.frozenCount} Frozen`}>
+                    <span>🧊</span>{top3.frozenCount}
+                  </span>
+                )}
               </div>
               <div className="font-mono font-bold text-amber-200 bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-800/40">
                 {top3.currentXp?.toLocaleString() || 0} XP
@@ -437,6 +452,14 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-950/30 text-amber-400 text-xs font-semibold border border-amber-900/30">
                           🔥 {u.streakDays || 0}d
                         </span>
+                        {(u.frozenCount ?? 0) > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 ml-1.5 px-2 py-0.5 rounded-full bg-cyan-950/30 text-cyan-300 text-xs font-semibold border border-cyan-900/30"
+                            title={`Proteção de Streak: ${u.frozenCount} Frozen`}
+                          >
+                            🧊 {u.frozenCount}
+                          </span>
+                        )}
                       </td>
 
                       {/* XP Total */}
