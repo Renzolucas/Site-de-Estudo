@@ -16,6 +16,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +55,13 @@ public class User {
     @Column(name = "streak_days", nullable = false)
     private Integer streakDays = 0;
 
+    @Builder.Default
+    @Column(name = "frozen_count", nullable = false)
+    private Integer frozenCount = 0;
+
+    @Column(name = "last_streak_date")
+    private LocalDate lastStreakDate;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
@@ -69,6 +77,9 @@ public class User {
         }
         if (this.streakDays == null) {
             this.streakDays = 0;
+        }
+        if (this.frozenCount == null) {
+            this.frozenCount = 0;
         }
     }
 }

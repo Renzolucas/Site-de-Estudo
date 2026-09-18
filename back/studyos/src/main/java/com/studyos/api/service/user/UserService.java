@@ -12,6 +12,7 @@ import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.timelog.TimeLogRepository;
 import com.studyos.api.repository.user.UserRepository;
+import com.studyos.api.service.gamification.GamificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final TimeLogRepository timeLogRepository;
+    private final GamificationService gamificationService;
 
     @Transactional
     public UserResponse register(UserRegisterRequest request) {
@@ -39,15 +41,22 @@ public class UserService {
                 .level(1)
                 .currentXp(0L)
                 .streakDays(0)
+                .frozenCount(0)
                 .build();
 
         User savedUser = userRepository.save(user);
         return UserResponse.fromEntity(savedUser);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserResponse findById(Long id) {
         User user = findEntityById(id);
+        if (user.getStreakDays() == null || user.getStreakDays() == 0 || user.getFrozenCount() == null || (user.getStreakDays() >= 30 && (user.getFrozenCount() == null || user.getFrozenCount() == 0))) {
+            User synced = gamificationService.syncStreakFromValidTaskHistory(id);
+            if (synced != null) {
+                user = synced;
+            }
+        }
         return UserResponse.fromEntity(user);
     }
 
@@ -73,9 +82,15 @@ public class UserService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public StudyStatsResponse getUserStats(Long userId) {
         User user = findEntityById(userId);
+        if (user.getStreakDays() == null || user.getStreakDays() == 0 || user.getFrozenCount() == null || (user.getStreakDays() >= 30 && (user.getFrozenCount() == null || user.getFrozenCount() == 0))) {
+            User synced = gamificationService.syncStreakFromValidTaskHistory(userId);
+            if (synced != null) {
+                user = synced;
+            }
+        }
         Long totalStudyMinutes = timeLogRepository.sumTotalStudyMinutesByUserId(userId);
         long completedTasks = taskRepository.countByUserIdAndStatus(userId, TaskStatus.COMPLETED);
 
@@ -84,7 +99,8 @@ public class UserService {
                 completedTasks,
                 user.getStreakDays(),
                 user.getCurrentXp(),
-                user.getLevel()
+                user.getLevel(),
+                user.getFrozenCount() != null ? user.getFrozenCount() : 0
         );
     }
 }

@@ -21,7 +21,7 @@ public class AuthService {
     private final UserService userService;
     private final JwtTokenService jwtTokenService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .orElseThrow(() -> new BusinessRuleException("Credenciais inválidas: e-mail ou senha incorretos."));
@@ -32,7 +32,7 @@ public class AuthService {
         }
 
         String token = jwtTokenService.generateToken(user);
-        return AuthResponse.of(token, UserResponse.fromEntity(user));
+        return AuthResponse.of(token, userService.findById(user.getId()));
     }
 
     @Transactional
@@ -45,7 +45,7 @@ public class AuthService {
         return AuthResponse.of(token, registered);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserResponse getAuthenticatedUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new BusinessRuleException("Token de autorização não fornecido ou formato inválido.");
@@ -61,11 +61,9 @@ public class AuthService {
             String email = jwtTokenService.extractEmail(token);
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("Usuário do token não encontrado."));
-            return UserResponse.fromEntity(user);
+            return userService.findById(user.getId());
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
-        return UserResponse.fromEntity(user);
+        return userService.findById(userId);
     }
 }

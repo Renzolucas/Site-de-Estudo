@@ -46,17 +46,13 @@ public class TimeLogService {
                 + request.loggedDurationMinutes();
         task.setActualDurationMinutes(updatedActualDuration);
 
-        // Se a sessao foi COMPLETED e a tarefa ainda estava pendente/em progresso, atualiza a tarefa
+        // Se a sessao foi COMPLETED e a tarefa ainda estava pendente/em progresso, conclui a lição com gamificação
         if (request.completionStatus() == CompletionStatus.COMPLETED && task.getStatus() != TaskStatus.COMPLETED) {
-            task.setStatus(TaskStatus.COMPLETED);
-            if (task.getXpReward() != null && task.getXpReward() > 0) {
-                gamificationService.grantXp(user, task.getXpReward());
-            }
+            gamificationService.processLessonCompletion(task);
         } else if (task.getStatus() == TaskStatus.PENDING) {
             task.setStatus(TaskStatus.IN_PROGRESS);
+            taskRepository.save(task);
         }
-
-        taskRepository.save(task);
 
         // Concede XP pelo tempo de foco registrado
         int sessionXp = gamificationService.calculateTimeLogXp(request.loggedDurationMinutes(), request.completionStatus());

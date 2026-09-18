@@ -18,8 +18,25 @@ public record TaskResponse(
         Integer actualDurationMinutes,
         TaskStatus status,
         LocalDate targetDate,
-        Integer xpReward
+        Integer xpReward,
+        Boolean streakProcessed
 ) {
+    public TaskResponse(
+            Long id,
+            Long userId,
+            String title,
+            String description,
+            TaskCategory category,
+            Season season,
+            Integer plannedDurationMinutes,
+            Integer actualDurationMinutes,
+            TaskStatus status,
+            LocalDate targetDate,
+            Integer xpReward
+    ) {
+        this(id, userId, title, description, category, season, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
+    }
+
     public static TaskResponse fromEntity(Task task) {
         return new TaskResponse(
                 task.getId(),
@@ -32,7 +49,8 @@ public record TaskResponse(
                 task.getActualDurationMinutes(),
                 task.getStatus(),
                 task.getTargetDate(),
-                task.getXpReward()
+                task.getXpReward(),
+                task.getStreakProcessed() != null ? task.getStreakProcessed() : false
         );
     }
 }

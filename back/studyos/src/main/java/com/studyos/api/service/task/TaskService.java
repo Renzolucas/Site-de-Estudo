@@ -29,7 +29,7 @@ public class TaskService {
     public TaskResponse create(TaskCreateRequest request) {
         User user = userService.findEntityById(request.userId());
 
-        int calculatedXp = request.xpReward() != null && request.xpReward() > 0
+        int calculatedXp = request.xpReward() != null
                 ? request.xpReward()
                 : gamificationService.calculateTaskXp(request.plannedDurationMinutes(), request.category());
 
@@ -41,6 +41,7 @@ public class TaskService {
                 .plannedDurationMinutes(request.plannedDurationMinutes())
                 .actualDurationMinutes(0)
                 .status(TaskStatus.PENDING)
+                .streakProcessed(false)
                 .targetDate(request.targetDate())
                 .xpReward(calculatedXp)
                 .user(user)
@@ -111,7 +112,7 @@ public class TaskService {
         if (request.targetDate() != null) {
             task.setTargetDate(request.targetDate());
         }
-        if (request.xpReward() != null && request.xpReward() > 0) {
+        if (request.xpReward() != null && request.xpReward() >= 0) {
             task.setXpReward(request.xpReward());
         }
 
@@ -122,18 +123,15 @@ public class TaskService {
     @Transactional
     public TaskResponse updateStatus(Long id, TaskStatus newStatus) {
         Task task = findEntityById(id);
-        TaskStatus previousStatus = task.getStatus();
 
-        task.setStatus(newStatus);
-
-        // Se a tarefa foi marcada como COMPLETED pela primeira vez, concede XP de recompensa
-        if (newStatus == TaskStatus.COMPLETED && previousStatus != TaskStatus.COMPLETED) {
-            int reward = task.getXpReward() != null ? task.getXpReward() : 20;
-            gamificationService.grantXp(task.getUser(), reward);
+        if (newStatus == TaskStatus.COMPLETED) {
+            gamificationService.processLessonCompletion(task);
+        } else {
+            task.setStatus(newStatus);
+            taskRepository.save(task);
         }
 
-        Task updatedTask = taskRepository.save(task);
-        return TaskResponse.fromEntity(updatedTask);
+        return TaskResponse.fromEntity(task);
     }
 
     @Transactional

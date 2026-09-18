@@ -1,6 +1,8 @@
 package com.studyos.api.service.auth;
 
 import com.studyos.api.model.User;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -8,20 +10,32 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 
+@Slf4j
 @Service
 public class JwtTokenService {
 
-    @Value("${studyos.jwt.secret:StudyOS_Super_Secret_Jwt_Signing_Key_2026_High_Security_Token}")
+    @Value("${studyos.jwt.secret:${JWT_SECRET:}}")
     private String jwtSecret;
 
-    @Value("${studyos.jwt.expiration-days:7}")
+    @Value("${studyos.jwt.expiration-days:${JWT_EXPIRATION_DAYS:7}}")
     private int expirationDays;
 
     private static final String HMAC_SHA256 = "HmacSHA256";
+
+    @PostConstruct
+    public void init() {
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            log.warn("[SEGURANCA] Nenhuma variavel JWT_SECRET configurada no ambiente. Gerando chave segura efemera em memoria.");
+            byte[] ephemeralKey = new byte[32];
+            new SecureRandom().nextBytes(ephemeralKey);
+            this.jwtSecret = Base64.getUrlEncoder().withoutPadding().encodeToString(ephemeralKey);
+        }
+    }
 
     /**
      * Gera um token JWT padrão (RFC 7519) assinado com HMAC-SHA256.

@@ -25,6 +25,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,6 +75,13 @@ public class Task {
     @Column(name = "xp_reward")
     private Integer xpReward;
 
+    @Builder.Default
+    @Column(name = "streak_processed", nullable = false)
+    private Boolean streakProcessed = false;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
@@ -91,6 +99,9 @@ public class Task {
         }
         if (this.status == null) {
             this.status = TaskStatus.PENDING;
+        }
+        if (this.streakProcessed == null) {
+            this.streakProcessed = false;
         }
     }
 }
