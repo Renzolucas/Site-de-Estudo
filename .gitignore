@@ -55,6 +55,8 @@ pnpm-debug.log*
 **/build/
 **/.cache/
 **/.vite/
+**/.figma/
+package-lock.json
 *.tsbuildinfo
 .claude-replay.*
 .tmp-*
