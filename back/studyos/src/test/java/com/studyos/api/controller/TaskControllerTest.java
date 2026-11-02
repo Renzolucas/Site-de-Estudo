@@ -4,6 +4,7 @@ import com.studyos.api.controller.task.TaskController;
 import com.studyos.api.dto.task.request.TaskCreateRequest;
 import com.studyos.api.dto.task.request.TaskUpdateRequest;
 import com.studyos.api.dto.task.response.TaskResponse;
+import com.studyos.api.exception.handler.GlobalExceptionHandler;
 import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
@@ -48,7 +49,9 @@ class TaskControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(taskController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(taskController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -65,6 +68,7 @@ class TaskControllerTest {
                 null,
                 TaskStatus.PENDING,
                 LocalDate.of(2026, 9, 15),
+                LocalDate.of(2026, 9, 20),
                 100
         );
 
@@ -78,7 +82,8 @@ class TaskControllerTest {
                     "category": "JAVA_BACKEND",
                     "season": "SUMMER",
                     "plannedDurationMinutes": 120,
-                    "targetDate": "2026-09-15",
+                    "startDate": "2026-09-15",
+                    "endDate": "2026-09-20",
                     "xpReward": 100
                 }
                 """;
@@ -94,8 +99,54 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.category").value("JAVA_BACKEND"))
                 .andExpect(jsonPath("$.season").value("SUMMER"))
                 .andExpect(jsonPath("$.plannedDurationMinutes").value(120))
+                .andExpect(jsonPath("$.startDate").value("2026-09-15"))
+                .andExpect(jsonPath("$.endDate").value("2026-09-20"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.xpReward").value(100));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/tasks - Deve retornar 400 quando endDate for anterior a startDate")
+    void shouldFailWhenEndDateIsBeforeStartDate() throws Exception {
+        String jsonPayload = """
+                {
+                    "userId": 1,
+                    "title": "Estudar Spring Security",
+                    "description": "Foco em JWT e OAuth2",
+                    "category": "JAVA_BACKEND",
+                    "season": "SUMMER",
+                    "plannedDurationMinutes": 120,
+                    "startDate": "2026-09-20",
+                    "endDate": "2026-09-15",
+                    "xpReward": 100
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/tasks - Deve retornar 400 quando startDate ou endDate for nulo")
+    void shouldFailWhenDatesAreNull() throws Exception {
+        String jsonPayload = """
+                {
+                    "userId": 1,
+                    "title": "Estudar Spring Security",
+                    "description": "Foco em JWT e OAuth2",
+                    "category": "JAVA_BACKEND",
+                    "season": "SUMMER",
+                    "plannedDurationMinutes": 120,
+                    "xpReward": 100
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -112,6 +163,7 @@ class TaskControllerTest {
                 null,
                 TaskStatus.PENDING,
                 LocalDate.of(2026, 9, 15),
+                LocalDate.of(2026, 9, 20),
                 100
         );
 
@@ -120,15 +172,17 @@ class TaskControllerTest {
         mockMvc.perform(get("/api/v1/tasks/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10))
-                .andExpect(jsonPath("$.title").value("Estudar Spring Security"));
+                .andExpect(jsonPath("$.title").value("Estudar Spring Security"))
+                .andExpect(jsonPath("$.startDate").value("2026-09-15"))
+                .andExpect(jsonPath("$.endDate").value("2026-09-20"));
     }
 
     @Test
     @DisplayName("GET /api/v1/tasks/user/{userId} - Deve listar tarefas do usuário")
     void shouldFindTasksByUser() throws Exception {
         List<TaskResponse> list = List.of(
-                new TaskResponse(1L, 1L, "Task 1", "Desc 1", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80),
-                new TaskResponse(2L, 1L, "Task 2", "Desc 2", TaskCategory.FRONTEND, SeasonCode.AUTUMN, 90, null, TaskStatus.COMPLETED, LocalDate.now(), 90)
+                new TaskResponse(1L, 1L, "Task 1", "Desc 1", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), LocalDate.now(), 80),
+                new TaskResponse(2L, 1L, "Task 2", "Desc 2", TaskCategory.FRONTEND, SeasonCode.AUTUMN, 90, null, TaskStatus.COMPLETED, LocalDate.now(), LocalDate.now(), 90)
         );
 
         when(taskService.findByUserId(1L)).thenReturn(list);
@@ -144,7 +198,7 @@ class TaskControllerTest {
     @DisplayName("GET /api/v1/tasks/user/{userId}?season=SUMMER - Deve filtrar tarefas por estação")
     void shouldFindTasksByUserAndSeason() throws Exception {
         List<TaskResponse> list = List.of(
-                new TaskResponse(1L, 1L, "Task Summer", "Desc", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80)
+                new TaskResponse(1L, 1L, "Task Summer", "Desc", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), LocalDate.now(), 80)
         );
 
         when(taskService.findByUserIdAndSeason(1L, SeasonCode.SUMMER)).thenReturn(list);
@@ -169,6 +223,7 @@ class TaskControllerTest {
                 null,
                 TaskStatus.IN_PROGRESS,
                 LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 10),
                 110
         );
 
@@ -181,7 +236,8 @@ class TaskControllerTest {
                     "category": "DATABASE",
                     "season": "AUTUMN",
                     "plannedDurationMinutes": 90,
-                    "targetDate": "2026-10-01",
+                    "startDate": "2026-10-01",
+                    "endDate": "2026-10-10",
                     "xpReward": 110
                 }
                 """;
@@ -192,7 +248,9 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.title").value("Título Atualizado"))
-                .andExpect(jsonPath("$.category").value("DATABASE"));
+                .andExpect(jsonPath("$.category").value("DATABASE"))
+                .andExpect(jsonPath("$.startDate").value("2026-10-01"))
+                .andExpect(jsonPath("$.endDate").value("2026-10-10"));
     }
 
     @Test
@@ -208,6 +266,7 @@ class TaskControllerTest {
                 60,
                 60,
                 TaskStatus.COMPLETED,
+                LocalDate.now(),
                 LocalDate.now(),
                 80
         );

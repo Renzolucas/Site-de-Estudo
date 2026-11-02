@@ -20,6 +20,8 @@ import api, {
   formatTaskCategory,
   formatTaskStatus,
   formatSeason,
+  getSeasonsByUser,
+  updateSeason,
   DEFAULT_USER_ID,
   API_BASE_URL,
   type TaskResponse,
@@ -27,6 +29,7 @@ import api, {
   type StudyStatsResponse,
   type TimeLogResponse,
   type Season,
+  type SeasonEntityResponse,
 } from "./services/api";
 import AuthPage from "./components/AuthPage";
 import Leaderboard from "./components/Leaderboard";
@@ -39,7 +42,9 @@ type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard"
 interface MacroTask {
   id: number;
   title: string;
-  dueDate: string;
+  startDate: string;
+  endDate: string;
+  dueDate?: string;
   completed: boolean;
   expanded: boolean;
   notes: string;
@@ -51,6 +56,7 @@ interface MacroTask {
 
 interface RoadmapQuarter {
   id: number;
+  dbId?: number;
   season: string;
   seasonKey: Season;
   quarter: string;
@@ -74,8 +80,43 @@ interface Task {
   timeStart: string;
   timeEnd: string;
   xpReward: number;
-  targetDate?: string;
+  startDate: string;
+  endDate: string;
 }
+
+export const formatPeriod = (startDate?: string, endDate?: string): string => {
+  if (!startDate && !endDate) return "";
+  const formatSingle = (d: string) => {
+    try {
+      const parts = d.split("T")[0].split("-");
+      if (parts.length === 3) {
+        return `${parts[2].padStart(2, "0")}/${parts[1].padStart(2, "0")}`;
+      }
+      const dt = new Date(d + "T00:00:00");
+      return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    } catch {
+      return d;
+    }
+  };
+
+  const startFormatted = startDate ? formatSingle(startDate) : "";
+  const endFormatted = endDate ? formatSingle(endDate) : "";
+
+  if (startFormatted && endFormatted) {
+    return `${startFormatted} → ${endFormatted}`;
+  }
+  return startFormatted || endFormatted;
+};
+
+export const calculateDaysDuration = (start?: string, end?: string): string => {
+  if (!start || !end) return "0 dias";
+  const s = new Date(start + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
+  const diffTime = e.getTime() - s.getTime();
+  if (isNaN(diffTime) || diffTime < 0) return "Período inválido";
+  const days = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return days === 1 ? "1 dia" : `${days} dias`;
+};
 
 interface Badge {
   id: number;
@@ -171,7 +212,8 @@ const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
     timeStart: startStr,
     timeEnd: endStr,
     xpReward: t.xpReward || 80,
-    targetDate: t.targetDate,
+    startDate: t.startDate || getTodayIsoDate(),
+    endDate: t.endDate || t.startDate || getTodayIsoDate(),
   };
 };
 
@@ -500,7 +542,7 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
 
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5 sm:mb-2">
                 <span
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
                   style={{ background: task.categoryColor + "20", color: task.categoryColor }}
@@ -512,6 +554,11 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
                   {task.category}
                 </span>
                 <span className="text-xs text-slate-600 font-mono">{task.timeStart}–{task.timeEnd}</span>
+                {(task.startDate || task.endDate) && (
+                  <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                    {formatPeriod(task.startDate, task.endDate)}
+                  </span>
+                )}
               </div>
               <h3 className="text-base sm:text-lg font-semibold text-slate-100 leading-snug truncate">{task.title}</h3>
               <p className="text-xs text-slate-500 mt-0.5 truncate">{task.subtitle}</p>
@@ -829,8 +876,16 @@ const TaskCard = ({ task, onLog }: { task: Task; onLog: (t: Task) => void }) => 
       <div className="pl-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="text-xs font-mono text-slate-500">{task.timeStart}–{task.timeEnd}</span>
+              {(task.startDate || task.endDate) && (
+                <>
+                  <span className="text-slate-700">·</span>
+                  <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                    {formatPeriod(task.startDate, task.endDate)}
+                  </span>
+                </>
+              )}
               <span className="text-slate-700">·</span>
               <span
                 className="text-xs font-medium px-2 py-0.5 rounded-md"
@@ -951,14 +1006,15 @@ const PerformanceView = ({ user, tasks, timeLogs, userStats }: PerformanceViewPr
     // Inicializa os 7 dias com 0
     const dayStats = weekDays.map((day) => ({ day, planned: 0, actual: 0 }));
 
-    // Computa tarefas planejadas da semana se possuírem targetDate
+    // Computa tarefas planejadas da semana se possuírem startDate ou endDate
     tasks.forEach((t) => {
       const plannedH = parseTimeToMinutes(t.plannedTime) / 60;
       const actualH = t.actualTime ? parseTimeToMinutes(t.actualTime) / 60 : 0;
       
-      if (t.targetDate) {
+      const dateStr = t.startDate || t.endDate;
+      if (dateStr) {
         try {
-          const date = new Date(t.targetDate + "T00:00:00");
+          const date = new Date(dateStr + "T00:00:00");
           const dayIndex = (date.getDay() + 6) % 7; // Ajusta para 0 = Segunda
           if (dayIndex >= 0 && dayIndex < 7) {
             dayStats[dayIndex].planned += plannedH;
@@ -1115,33 +1171,32 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 interface AddTaskModalProps {
   quarters: RoadmapQuarter[];
   defaultQuarterId?: number;
+  defaultStartDate?: string;
+  defaultEndDate?: string;
   defaultDueDate?: string;
-  onAdd: (quarterId: number, title: string, dueDate: string, category?: string, plannedMinutes?: number) => Promise<void>;
+  onAdd: (quarterId: number, title: string, startDate: string, endDate: string, category?: string, plannedMinutes?: number) => Promise<void>;
   onClose: () => void;
 }
 
-const AddTaskModal = ({ quarters, defaultQuarterId, defaultDueDate, onAdd, onClose }: AddTaskModalProps) => {
+const AddTaskModal = ({ quarters, defaultQuarterId, defaultStartDate, defaultEndDate, defaultDueDate, onAdd, onClose }: AddTaskModalProps) => {
   const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0]?.id ?? 1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("JAVA_BACKEND");
   const [plannedMinutes, setPlannedMinutes] = useState(60);
-  const [dueDate, setDueDate] = useState(() => {
-    if (defaultDueDate) return defaultDueDate;
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  });
+  const today = getTodayIsoDate();
+  const [startDate, setStartDate] = useState(defaultStartDate || defaultDueDate || today);
+  const [endDate, setEndDate] = useState(defaultEndDate || defaultDueDate || today);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const handleAdd = async () => {
     if (!title.trim()) { setError("O título da tarefa é obrigatório."); return; }
+    if (!startDate) { setError("A data de início é obrigatória."); return; }
+    if (!endDate) { setError("A data de fim é obrigatória."); return; }
+    if (endDate < startDate) { setError("A data de fim não pode ser anterior à data de início."); return; }
     setIsSubmitting(true);
     try {
-      await onAdd(selectedQuarter, title.trim(), dueDate, category, plannedMinutes);
+      await onAdd(selectedQuarter, title.trim(), startDate, endDate, category, plannedMinutes);
       onClose();
     } catch (err: any) {
       setError(err?.message || "Erro ao adicionar tarefa.");
@@ -1224,42 +1279,87 @@ const AddTaskModal = ({ quarters, defaultQuarterId, defaultDueDate, onAdd, onClo
             {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Categoria</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
-                style={{
-                  background: "rgba(15,18,28,0.8)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                }}
-              >
-                <option value="JAVA_BACKEND">Java Backend</option>
-                <option value="FRONTEND">Frontend</option>
-                <option value="DATABASE">Banco de Dados</option>
-                <option value="DEVOPS">DevOps</option>
-                <option value="ENGLISH">Inglês</option>
-                <option value="EXERCISE">Exercício Físico</option>
-                <option value="READING">Leitura</option>
-                <option value="OTHER">Outros</option>
-              </select>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Categoria</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
+              style={{
+                background: "rgba(15,18,28,0.8)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <option value="JAVA_BACKEND">Java Backend</option>
+              <option value="FRONTEND">Frontend</option>
+              <option value="DATABASE">Banco de Dados</option>
+              <option value="DEVOPS">DevOps</option>
+              <option value="ENGLISH">Inglês</option>
+              <option value="EXERCISE">Exercício Físico</option>
+              <option value="READING">Leitura</option>
+              <option value="OTHER">Outros</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Início</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setStartDate(newStart);
+                    if (endDate && newStart > endDate) {
+                      setEndDate(newStart);
+                    }
+                    setError("");
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
+                  style={{
+                    background: "rgba(15,18,28,0.8)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    colorScheme: "dark",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Fim</label>
+                <input
+                  type="date"
+                  min={startDate}
+                  value={endDate}
+                  onChange={(e) => {
+                    const newEnd = e.target.value;
+                    setEndDate(newEnd);
+                    if (startDate && newEnd < startDate) {
+                      setError("A data de fim não pode ser anterior à data de início.");
+                    } else {
+                      setError("");
+                    }
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
+                  style={{
+                    background: "rgba(15,18,28,0.8)",
+                    border: `1px solid ${endDate < startDate ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.07)"}`,
+                    colorScheme: "dark",
+                  }}
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Data Alvo</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-sm text-slate-200 outline-none transition-all cursor-pointer"
-                style={{
-                  background: "rgba(15,18,28,0.8)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  colorScheme: "dark",
-                }}
-              />
+            {/* Duração discreta do período */}
+            <div className="mt-1.5 px-0.5">
+              {endDate < startDate ? (
+                <p className="text-xs text-red-400 font-medium">A data de fim não pode ser anterior à data de início.</p>
+              ) : (
+                <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                  Duração: <strong className="text-slate-300 font-mono font-medium">{calculateDaysDuration(startDate, endDate)}</strong>
+                </p>
+              )}
             </div>
           </div>
 
@@ -1473,14 +1573,17 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                 )}
               </div>
 
-              <input
-                type="date"
-                value={task.dueDate}
-                onChange={e => onTaskUpdate(quarter.id, task.id, { dueDate: e.target.value })}
-                className="text-[11px] sm:text-xs font-mono flex-shrink-0 bg-transparent border-0 outline-none cursor-pointer transition-colors"
-                style={{ colorScheme: "dark", color: task.completed ? "#475569" : quarter.accentColor + "cc", width: "86px" }}
-                title="Clique para alterar a data"
-              />
+              <span
+                className="text-[11px] sm:text-xs font-mono flex-shrink-0 px-2 py-0.5 rounded"
+                style={{
+                  color: task.completed ? "#475569" : quarter.accentColor,
+                  background: quarter.accentColor + "15",
+                  border: `1px solid ${quarter.accentColor}25`
+                }}
+                title="Período da meta"
+              >
+                {formatPeriod(task.startDate, task.endDate)}
+              </span>
 
               <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/task:opacity-100 transition-all flex-shrink-0">
                 <button
@@ -1508,7 +1611,29 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
             </div>
 
             {task.expanded && (
-              <div className="mx-2 mb-1 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div className="mx-2 mb-1 px-3 py-2 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-500 text-[11px]">Início:</span>
+                  <input
+                    type="date"
+                    value={task.startDate}
+                    onChange={e => onTaskUpdate(quarter.id, task.id, { startDate: e.target.value })}
+                    className="bg-slate-900 border border-slate-700/60 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-300 outline-none"
+                    style={{ colorScheme: "dark" }}
+                  />
+                  <span className="text-slate-500 text-[11px]">Fim:</span>
+                  <input
+                    type="date"
+                    min={task.startDate}
+                    value={task.endDate}
+                    onChange={e => onTaskUpdate(quarter.id, task.id, { endDate: e.target.value })}
+                    className="bg-slate-900 border border-slate-700/60 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-300 outline-none"
+                    style={{ colorScheme: "dark" }}
+                  />
+                  <span className="text-[11px] text-slate-400 font-mono ml-auto">
+                    {calculateDaysDuration(task.startDate, task.endDate)}
+                  </span>
+                </div>
                 <textarea
                   value={task.notes}
                   onChange={e => onTaskUpdate(quarter.id, task.id, { notes: e.target.value })}
@@ -1559,8 +1684,8 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
   const overallPct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
 
   const upcoming = allTasks
-    .filter(t => !t.completed && t.dueDate)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    .filter(t => !t.completed && (t.startDate || t.endDate))
+    .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""))
     .slice(0, 4);
 
   const formatDate = (d: string) => {
@@ -1633,7 +1758,7 @@ const RoadmapSidebar = ({ quarters }: { quarters: RoadmapQuarter[] }) => {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-slate-300 truncate leading-snug">{task.title}</p>
-                <p className="text-xs font-mono mt-0.5" style={{ color: task.accentColor + "99" }}>{formatDate(task.dueDate)}</p>
+                <p className="text-xs font-mono mt-0.5" style={{ color: task.accentColor + "99" }}>{formatPeriod(task.startDate, task.endDate)}</p>
               </div>
             </div>
           ))}
@@ -1680,7 +1805,7 @@ export default function App() {
   const [timeLogs, setTimeLogs] = useState<TimeLogResponse[]>([]);
   const [userStats, setUserStats] = useState<StudyStatsResponse | null>(null);
   const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
-  const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number; defaultDueDate?: string }>({ open: false });
+  const [addTaskModal, setAddTaskModal] = useState<{ open: boolean; defaultQuarterId?: number; defaultStartDate?: string; defaultEndDate?: string; defaultDueDate?: string }>({ open: false });
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
 
   const addToast = useCallback((toast: Omit<NotificationToast, "id">) => {
@@ -1745,21 +1870,27 @@ export default function App() {
       setTasks([]);
     }
 
-    // 4. Busca tarefas por estação do usuário autenticado (/tasks/user/{id}?season=...)
+    // 4. Busca estações persistidas (/seasons/user/{id}) e tarefas por estação (/tasks/user/{id}?season=...)
     try {
       const seasons: Season[] = ["SUMMER", "AUTUMN", "WINTER", "SPRING"];
-      const seasonResults = await Promise.allSettled(
-        seasons.map(s => getTasksBySeason(s, userId))
-      );
+      const [seasonResults, dbSeasonsRes] = await Promise.all([
+        Promise.allSettled(seasons.map(s => getTasksBySeason(s, userId))),
+        getSeasonsByUser(userId).catch(() => null),
+      ]);
 
       setQuarters(
         DEFAULT_SEASON_QUARTERS.map((q, idx) => {
           const res = seasonResults[idx];
+          const dbSeason = dbSeasonsRes?.find((s: SeasonEntityResponse) => s.code === q.seasonKey);
+
+          let apiTasks: MacroTask[] = [];
           if (res.status === "fulfilled" && Array.isArray(res.value) && res.value.length > 0) {
-            const apiTasks: MacroTask[] = res.value.map(t => ({
+            apiTasks = res.value.map(t => ({
               id: t.id,
               title: t.title,
-              dueDate: t.targetDate || getTodayIsoDate(),
+              startDate: t.startDate || getTodayIsoDate(),
+              endDate: t.endDate || t.startDate || getTodayIsoDate(),
+              dueDate: t.startDate || getTodayIsoDate(),
               completed: t.status === "COMPLETED",
               expanded: false,
               notes: t.description || "",
@@ -1768,9 +1899,17 @@ export default function App() {
               actualMinutes: t.actualDurationMinutes || 0,
               xpReward: t.xpReward || 80,
             }));
-            return { ...q, tasks: apiTasks };
           }
-          return { ...q, tasks: [] };
+
+          return {
+            ...q,
+            dbId: dbSeason?.id,
+            season: dbSeason?.title || q.season,
+            subtitle: dbSeason?.title || q.subtitle,
+            goal: dbSeason?.description || q.goal,
+            quarter: dbSeason?.quarter || q.quarter,
+            tasks: apiTasks,
+          };
         })
       );
     } catch (e) {
@@ -1851,9 +1990,27 @@ export default function App() {
     });
   };
 
-  // Atualizar Quarter localmente
-  const updateQuarter = (id: number, patch: Partial<RoadmapQuarter>) =>
+  // Atualizar Quarter localmente e sincronizar com o banco de dados MySQL
+  const updateQuarter = async (id: number, patch: Partial<RoadmapQuarter>) => {
     setQuarters(qs => qs.map(q => q.id === id ? { ...q, ...patch } : q));
+
+    const targetQuarter = quarters.find(q => q.id === id);
+    if (targetQuarter?.dbId && (patch.goal !== undefined || patch.subtitle !== undefined || patch.season !== undefined)) {
+      try {
+        await updateSeason(targetQuarter.dbId, {
+          title: patch.subtitle || patch.season || targetQuarter.subtitle,
+          description: patch.goal !== undefined ? patch.goal : targetQuarter.goal,
+        });
+        addToast({
+          type: "success",
+          title: "Roadmap Atualizado",
+          message: "Objetivos e título da estação foram salvos com sucesso.",
+        });
+      } catch (err) {
+        console.warn("[StudyOS] Erro ao persistir atualização da estação no banco:", err);
+      }
+    }
+  };
 
   // Atualizar Tarefa / Toggle Completed / Editar dados com validação de Auth
   const handleTaskUpdate = async (qId: number, tId: number, patch: Partial<MacroTask>) => {
@@ -1894,11 +2051,12 @@ export default function App() {
       }
     }
 
-    if (patch.title !== undefined || patch.dueDate !== undefined || patch.notes !== undefined || patch.category !== undefined) {
+    if (patch.title !== undefined || patch.startDate !== undefined || patch.endDate !== undefined || patch.dueDate !== undefined || patch.notes !== undefined || patch.category !== undefined) {
       try {
         await updateTask(tId, {
           title: patch.title,
-          targetDate: patch.dueDate,
+          startDate: patch.startDate || patch.dueDate,
+          endDate: patch.endDate || patch.startDate || patch.dueDate,
           description: patch.notes,
           category: patch.category,
         });
@@ -1936,7 +2094,7 @@ export default function App() {
   };
 
   // Criar Tarefa (/tasks) com validação de Auth e userId ativo
-  const handleAddTask = async (quarterId: number, title: string, dueDate: string, category: string = "JAVA_BACKEND", plannedMinutes: number = 60) => {
+  const handleAddTask = async (quarterId: number, title: string, startDate: string, endDate: string, category: string = "JAVA_BACKEND", plannedMinutes: number = 60) => {
     if (!currentUser || !isAuthenticated()) {
       addToast({
         type: "error",
@@ -1957,14 +2115,17 @@ export default function App() {
         season: quarter.seasonKey,
         category,
         plannedDurationMinutes: plannedMinutes,
-        targetDate: dueDate,
+        startDate: startDate,
+        endDate: endDate,
         xpReward,
       });
 
       const newTask: MacroTask = {
         id: createdTask.id || Date.now(),
         title: createdTask.title || title,
-        dueDate: createdTask.targetDate || dueDate,
+        startDate: createdTask.startDate || startDate,
+        endDate: createdTask.endDate || endDate,
+        dueDate: createdTask.startDate || startDate,
         completed: createdTask.status === "COMPLETED",
         expanded: false,
         notes: createdTask.description || "",
@@ -1987,7 +2148,8 @@ export default function App() {
         timeStart: "10:00",
         timeEnd: "11:30",
         xpReward,
-        targetDate: dueDate,
+        startDate: createdTask.startDate || startDate,
+        endDate: createdTask.endDate || endDate,
       };
       setTasks(ts => [...ts, dashboardTask]);
 
@@ -2341,7 +2503,8 @@ export default function App() {
                       setAddTaskModal({
                         open: true,
                         defaultQuarterId: getTodayQuarterId(),
-                        defaultDueDate: getTodayIsoDate(),
+                        defaultStartDate: getTodayIsoDate(),
+                        defaultEndDate: getTodayIsoDate(),
                       })
                     }
                     aria-label="Adicionar tarefa ao cronograma de hoje"
@@ -2388,7 +2551,8 @@ export default function App() {
                         setAddTaskModal({
                           open: true,
                           defaultQuarterId: getTodayQuarterId(),
-                          defaultDueDate: getTodayIsoDate(),
+                          defaultStartDate: getTodayIsoDate(),
+                          defaultEndDate: getTodayIsoDate(),
                         })
                       }
                       className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg hover:shadow-indigo-500/25 cursor-pointer"
@@ -2598,6 +2762,8 @@ export default function App() {
         <AddTaskModal
           quarters={quarters}
           defaultQuarterId={addTaskModal.defaultQuarterId}
+          defaultStartDate={addTaskModal.defaultStartDate}
+          defaultEndDate={addTaskModal.defaultEndDate}
           defaultDueDate={addTaskModal.defaultDueDate}
           onAdd={handleAddTask}
           onClose={() => setAddTaskModal({ open: false })}

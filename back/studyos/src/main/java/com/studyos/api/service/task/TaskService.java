@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -31,6 +32,13 @@ public class TaskService {
     @Transactional
     public TaskResponse create(TaskCreateRequest request) {
         User user = userService.findEntityById(request.userId());
+
+        if (request.startDate() == null || request.endDate() == null) {
+            throw new IllegalArgumentException("As datas de início e fim são obrigatórias.");
+        }
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new IllegalArgumentException("A data de fim não pode ser anterior à data de início.");
+        }
 
         Season seasonEntity = null;
         if (request.seasonId() != null) {
@@ -52,7 +60,8 @@ public class TaskService {
                 .actualDurationMinutes(0)
                 .status(TaskStatus.PENDING)
                 .streakProcessed(false)
-                .targetDate(request.targetDate())
+                .startDate(request.startDate())
+                .endDate(request.endDate())
                 .xpReward(calculatedXp)
                 .user(user)
                 .build();
@@ -132,9 +141,22 @@ public class TaskService {
         if (request.plannedDurationMinutes() != null && request.plannedDurationMinutes() > 0) {
             task.setPlannedDurationMinutes(request.plannedDurationMinutes());
         }
-        if (request.targetDate() != null) {
-            task.setTargetDate(request.targetDate());
+
+        if (request.startDate() != null || request.endDate() != null) {
+            LocalDate newStart = request.startDate() != null ? request.startDate() : task.getStartDate();
+            LocalDate newEnd = request.endDate() != null ? request.endDate() : task.getEndDate();
+
+            if (newStart != null && newEnd != null && newEnd.isBefore(newStart)) {
+                throw new IllegalArgumentException("A data de fim não pode ser anterior à data de início.");
+            }
+            if (newStart != null) {
+                task.setStartDate(newStart);
+            }
+            if (newEnd != null) {
+                task.setEndDate(newEnd);
+            }
         }
+
         if (request.xpReward() != null && request.xpReward() >= 0) {
             task.setXpReward(request.xpReward());
         }

@@ -70,8 +70,11 @@ public class Task {
     @Column(nullable = false, length = 30)
     private TaskStatus status = TaskStatus.PENDING;
 
-    @Column(name = "target_date")
-    private LocalDate targetDate;
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
 
     @Column(name = "xp_reward")
     private Integer xpReward;
@@ -104,6 +107,12 @@ public class Task {
         if (this.streakProcessed == null) {
             this.streakProcessed = false;
         }
+        if (this.startDate == null) {
+            this.startDate = LocalDate.now();
+        }
+        if (this.endDate == null) {
+            this.endDate = this.startDate;
+        }
     }
 
     public SeasonCode getSeason() {
@@ -117,6 +126,13 @@ public class Task {
     public static class TaskBuilder {
         public TaskBuilder season(Season season) {
             this.seasonEntity = season;
+            return this;
+        }
+
+        public TaskBuilder season(SeasonCode seasonCode) {
+            if (seasonCode != null) {
+                this.seasonEntity = Season.builder().code(seasonCode).title(seasonCode.name()).build();
+            }
             return this;
         }
 

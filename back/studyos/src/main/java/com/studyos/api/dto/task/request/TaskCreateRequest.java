@@ -2,6 +2,7 @@ package com.studyos.api.dto.task.request;
 
 import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -31,11 +32,23 @@ public record TaskCreateRequest(
         @Positive(message = "A duração planejada deve ser maior que 0 minutos")
         Integer plannedDurationMinutes,
 
-        LocalDate targetDate,
+        @NotNull(message = "A data de início é obrigatória")
+        LocalDate startDate,
+
+        @NotNull(message = "A data de fim é obrigatória")
+        LocalDate endDate,
 
         @PositiveOrZero(message = "O XP de recompensa deve ser positivo ou zero")
         Integer xpReward
 ) {
+    @AssertTrue(message = "A data de fim não pode ser anterior à data de início")
+    public boolean isDateRangeValid() {
+        if (startDate == null || endDate == null) {
+            return true;
+        }
+        return !endDate.isBefore(startDate);
+    }
+
     public TaskCreateRequest(
             Long userId,
             String title,
@@ -43,9 +56,10 @@ public record TaskCreateRequest(
             TaskCategory category,
             SeasonCode season,
             Integer plannedDurationMinutes,
-            LocalDate targetDate,
+            LocalDate startDate,
+            LocalDate endDate,
             Integer xpReward
     ) {
-        this(userId, title, description, category, season, null, plannedDurationMinutes, targetDate, xpReward);
+        this(userId, title, description, category, season, null, plannedDurationMinutes, startDate, endDate, xpReward);
     }
 }

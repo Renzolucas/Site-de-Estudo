@@ -18,7 +18,8 @@ public record TaskResponse(
         Integer plannedDurationMinutes,
         Integer actualDurationMinutes,
         TaskStatus status,
-        LocalDate targetDate,
+        LocalDate startDate,
+        LocalDate endDate,
         Integer xpReward,
         Boolean streakProcessed
 ) {
@@ -32,10 +33,11 @@ public record TaskResponse(
             Integer plannedDurationMinutes,
             Integer actualDurationMinutes,
             TaskStatus status,
-            LocalDate targetDate,
+            LocalDate startDate,
+            LocalDate endDate,
             Integer xpReward
     ) {
-        this(id, userId, title, description, category, season, null, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
+        this(id, userId, title, description, category, season, null, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
     }
 
     public TaskResponse(
@@ -49,10 +51,11 @@ public record TaskResponse(
             Integer plannedDurationMinutes,
             Integer actualDurationMinutes,
             TaskStatus status,
-            LocalDate targetDate,
+            LocalDate startDate,
+            LocalDate endDate,
             Integer xpReward
     ) {
-        this(id, userId, title, description, category, season, seasonId, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
+        this(id, userId, title, description, category, season, seasonId, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
     }
 
     public static TaskResponse fromEntity(Task task) {
@@ -67,7 +70,8 @@ public record TaskResponse(
                 task.getPlannedDurationMinutes(),
                 task.getActualDurationMinutes(),
                 task.getStatus(),
-                task.getTargetDate(),
+                task.getStartDate(),
+                task.getEndDate(),
                 task.getXpReward(),
                 task.getStreakProcessed() != null ? task.getStreakProcessed() : false
         );

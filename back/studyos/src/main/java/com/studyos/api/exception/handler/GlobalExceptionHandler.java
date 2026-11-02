@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -45,11 +46,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
                                                                       HttpServletRequest request) {
-        List<ValidationErrorField> validationErrors = ex.getBindingResult()
+        List<ValidationErrorField> validationErrors = new ArrayList<>(ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(fieldError -> new ValidationErrorField(fieldError.getField(), fieldError.getDefaultMessage()))
-                .toList();
+                .toList());
+
+        ex.getBindingResult().getGlobalErrors().forEach(globalError ->
+                validationErrors.add(new ValidationErrorField(globalError.getObjectName(), globalError.getDefaultMessage()))
+        );
 
         log.warn("Erro de validação na requisição {}: {} campos inválidos", request.getRequestURI(), validationErrors.size());
         ErrorResponse error = ErrorResponse.ofValidation(

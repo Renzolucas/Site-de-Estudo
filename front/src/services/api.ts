@@ -5,7 +5,7 @@
 
 export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL 
-  : 'https://site-de-estudo-production.up.railway.app/api/v1';
+  : 'http://localhost:8080/api/v1';
 
 export const DEFAULT_USER_ID = 1;
 
@@ -74,11 +74,27 @@ export interface TaskResponse {
   description: string;
   category: TaskCategory;
   season: Season;
+  seasonId?: number;
   plannedDurationMinutes: number;
   actualDurationMinutes: number | null;
   status: TaskStatus;
-  targetDate: string;
+  startDate: string;
+  endDate: string;
   xpReward: number;
+}
+
+export interface SeasonEntityResponse {
+  id: number;
+  code: Season;
+  title: string;
+  description: string;
+  quarter: string;
+  userId: number;
+}
+
+export interface SeasonUpdatePayload {
+  title?: string;
+  description?: string;
 }
 
 export interface TaskCreatePayload {
@@ -90,8 +106,8 @@ export interface TaskCreatePayload {
   season?: Season | string;
   plannedDurationMinutes?: number;
   plannedMinutes?: number;
-  targetDate?: string;
-  dueDate?: string;
+  startDate?: string;
+  endDate?: string;
   xpReward?: number;
 }
 
@@ -323,6 +339,10 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
   const rawSeason = (taskData.season || 'SUMMER').toString().toUpperCase().trim();
   const validSeason = seasonMap[rawSeason] || (rawSeason as Season) || 'SUMMER';
 
+  const defaultDate = getLocalDateString();
+  const startDate = taskData.startDate || defaultDate;
+  const endDate = taskData.endDate || startDate;
+
   const payload = {
     userId: taskData.userId || DEFAULT_USER_ID,
     title: taskData.title.trim(),
@@ -330,7 +350,8 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
     category: validCategory,
     season: validSeason,
     plannedDurationMinutes: Number(taskData.plannedDurationMinutes || taskData.plannedMinutes || 60),
-    targetDate: taskData.targetDate || taskData.dueDate || getLocalDateString(),
+    startDate: startDate,
+    endDate: endDate,
     xpReward: Number(taskData.xpReward !== undefined ? taskData.xpReward : 80),
   };
 
@@ -352,7 +373,8 @@ export async function updateTask(taskId: number, taskData: Partial<TaskCreatePay
     category: taskData.category ? taskData.category.toUpperCase().replace(/\s+/g, '_') : undefined,
     season: taskData.season ? taskData.season.toUpperCase() : undefined,
     plannedDurationMinutes: taskData.plannedDurationMinutes,
-    targetDate: taskData.targetDate || taskData.dueDate,
+    startDate: taskData.startDate,
+    endDate: taskData.endDate,
     xpReward: taskData.xpReward,
   };
 
@@ -606,6 +628,28 @@ export async function checkApiHealth(): Promise<boolean> {
   }
 }
 
+/**
+ * Busca todas as estações sazonais do usuário (/seasons/user/{userId}).
+ * Inicializa automaticamente as 4 estações padrão caso ainda não existam.
+ */
+export async function getSeasonsByUser(userId: number = DEFAULT_USER_ID): Promise<SeasonEntityResponse[]> {
+  return await fetchApi<SeasonEntityResponse[]>(`/seasons/user/${userId}`, { method: 'GET' });
+}
+
+/**
+ * Atualiza o título e/ou descrição de uma estação (/seasons/{id}).
+ */
+export async function updateSeason(
+  seasonId: number,
+  payload: SeasonUpdatePayload
+): Promise<SeasonEntityResponse> {
+  if (!seasonId) throw new Error('O ID da estação é obrigatório.');
+  return await fetchApi<SeasonEntityResponse>(`/seasons/${seasonId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
 const api = {
   getTasksBySeason,
   getTasks,
@@ -627,6 +671,8 @@ const api = {
   getUserStats,
   getLeaderboard,
   checkApiHealth,
+  getSeasonsByUser,
+  updateSeason,
 };
 
 export default api;
