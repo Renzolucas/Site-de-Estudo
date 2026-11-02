@@ -50,6 +50,7 @@ interface MacroTask {
   notes: string;
   category?: string;
   plannedMinutes?: number;
+  dailyMinMinutes?: number;
   actualMinutes?: number;
   xpReward?: number;
 }
@@ -75,6 +76,7 @@ interface Task {
   title: string;
   subtitle: string;
   plannedTime: string;
+  dailyMinMinutes?: number;
   actualTime: string | null;
   status: TaskStatus;
   timeStart: string;
@@ -200,13 +202,16 @@ const mapBackendTaskToDashboard = (t: TaskResponse, index: number): Task => {
   else if (t.status === "PARTIAL") status = "partial";
   else if (t.status === "IN_PROGRESS") status = "in-progress";
 
+  const dailyMin = t.dailyMinMinutes || t.plannedDurationMinutes || 30;
+
   return {
     id: t.id,
     category: formatTaskCategory(t.category),
     categoryColor: mapCategoryColor(t.category),
     title: t.title,
     subtitle: t.description || `Roadmap · ${formatSeason(t.season)}`,
-    plannedTime: formatMinutesToHm(t.plannedDurationMinutes),
+    plannedTime: formatMinutesToHm(dailyMin),
+    dailyMinMinutes: dailyMin,
     actualTime: t.actualDurationMinutes ? formatMinutesToHm(t.actualDurationMinutes) : null,
     status,
     timeStart: startStr,
@@ -430,15 +435,13 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
   const [phase, setPhase] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const plannedMins = parseTimeToMinutes(task.plannedTime);
+  const targetDailyMin = task.dailyMinMinutes || parseTimeToMinutes(task.plannedTime) || 30;
   const actualMins = hours * 60 + minutes;
   const hasActual = actualMins > 0;
 
-  const efficiencyPct = plannedMins > 0 && hasActual
-    ? Math.min(Math.round((actualMins / plannedMins) * 100), 140)
+  const progressPct = targetDailyMin > 0 && hasActual
+    ? Math.round((actualMins / targetDailyMin) * 100)
     : 0;
-  const overran = hasActual && actualMins > plannedMins;
-  const underPct = plannedMins > 0 && hasActual ? Math.min(actualMins / plannedMins, 1) * 100 : 0;
 
   const xpMultiplier = completionStatus === "complete" ? 1 : completionStatus === "partial" ? 0.6 : 0.25;
   const xpEarned = Math.round(task.xpReward * xpMultiplier);
@@ -586,26 +589,32 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Duração</label>
               {hasActual && (
-                <span className={`text-xs font-mono font-medium px-2 py-0.5 rounded-full ${
-                  overran ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"
-                }`}>
-                  {overran
-                    ? `+${actualMins - plannedMins}m a mais`
-                    : plannedMins - actualMins === 0 ? "No tempo previsto" : `${plannedMins - actualMins}m a menos`}
-                </span>
+                actualMins < targetDailyMin ? (
+                  <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                    Abaixo do mínimo ({targetDailyMin - actualMins}m restantes)
+                  </span>
+                ) : actualMins === targetDailyMin ? (
+                  <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                    Meta atingida
+                  </span>
+                ) : (
+                  <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/20">
+                    Acima da meta (+{actualMins - targetDailyMin}m)
+                  </span>
+                )
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
-                <p className="text-xs text-slate-600 mb-2 flex items-center gap-1.5">
+                <p className="text-xs text-slate-500 mb-2 flex items-center gap-1.5">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                   </svg>
-                  Planejado
+                  Mínimo Diário
                 </p>
-                <p className="font-mono text-xl font-semibold text-slate-300">{task.plannedTime}</p>
-                <p className="text-xs text-slate-700 mt-1">meta</p>
+                <p className="font-mono text-xl font-semibold text-slate-100">{formatMinutesToHm(targetDailyMin)}</p>
+                <p className="text-xs text-slate-600 mt-1">meta mínima diária</p>
               </div>
 
               <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
@@ -655,21 +664,21 @@ const TimeLogModal = ({ task, userXp, userLevel, userId, onClose, onTimeLogged }
 
             {hasActual && (
               <div className="mt-3">
-                <div className="flex justify-between text-xs text-slate-600 mb-1.5">
+                <div className="flex justify-between text-xs text-slate-500 mb-1.5">
                   <span>0m</span>
-                  <span className="text-slate-500">
-                    {efficiencyPct}% do tempo planejado utilizado
+                  <span className={actualMins >= targetDailyMin ? "text-emerald-400 font-medium" : "text-amber-400 font-medium"}>
+                    {progressPct}% da meta diária concluída
                   </span>
-                  <span>{task.plannedTime}</span>
+                  <span>{formatMinutesToHm(targetDailyMin)}</span>
                 </div>
                 <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min(underPct, 100)}%`,
-                      background: overran
-                        ? "linear-gradient(90deg, #6366F1, #ef4444)"
-                        : "linear-gradient(90deg, #6366F1, #10B981)",
+                      width: `${Math.min(progressPct, 100)}%`,
+                      background: actualMins >= targetDailyMin
+                        ? "linear-gradient(90deg, #6366F1, #10B981)"
+                        : "linear-gradient(90deg, #6366F1, #f59e0b)",
                     }}
                   />
                 </div>
@@ -1174,7 +1183,7 @@ interface AddTaskModalProps {
   defaultStartDate?: string;
   defaultEndDate?: string;
   defaultDueDate?: string;
-  onAdd: (quarterId: number, title: string, startDate: string, endDate: string, category?: string, plannedMinutes?: number) => Promise<void>;
+  onAdd: (quarterId: number, title: string, startDate: string, endDate: string, category?: string, dailyMinMinutes?: number) => Promise<void>;
   onClose: () => void;
 }
 
@@ -1182,21 +1191,79 @@ const AddTaskModal = ({ quarters, defaultQuarterId, defaultStartDate, defaultEnd
   const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId ?? quarters[0]?.id ?? 1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("JAVA_BACKEND");
-  const [plannedMinutes, setPlannedMinutes] = useState(60);
   const today = getTodayIsoDate();
   const [startDate, setStartDate] = useState(defaultStartDate || defaultDueDate || today);
   const [endDate, setEndDate] = useState(defaultEndDate || defaultDueDate || today);
+  const [minHours, setMinHours] = useState(0);
+  const [minMinutes, setMinMinutes] = useState(30);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const dailyMinMinutes = minHours * 60 + minMinutes;
+
+  const decrementHours = () => {
+    setMinHours(h => {
+      if (h <= 0) return 0;
+      const nextH = h - 1;
+      if (nextH === 0 && minMinutes < 5) {
+        setMinMinutes(5);
+      }
+      return nextH;
+    });
+  };
+
+  const incrementMinutes = () => {
+    setMinMinutes(m => {
+      if (m + 5 >= 60) {
+        setMinHours(h => h + 1);
+        return (m + 5) % 60;
+      }
+      return m + 5;
+    });
+  };
+
+  const decrementMinutes = () => {
+    if (minHours === 0 && minMinutes <= 5) {
+      return;
+    }
+    if (minMinutes - 5 < 0) {
+      if (minHours > 0) {
+        setMinHours(h => h - 1);
+        setMinMinutes(55);
+      }
+    } else {
+      const next = minMinutes - 5;
+      if (minHours === 0 && next < 5) {
+        setMinMinutes(5);
+      } else {
+        setMinMinutes(next);
+      }
+    }
+  };
+
+  const getDaysCount = (start: string, end: string) => {
+    if (!start || !end) return 1;
+    const s = new Date(start + "T00:00:00");
+    const e = new Date(end + "T00:00:00");
+    const diff = e.getTime() - s.getTime();
+    if (isNaN(diff) || diff < 0) return 1;
+    return Math.round(diff / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const nDays = getDaysCount(startDate, endDate);
+  const totalEstimatedMins = nDays * dailyMinMinutes;
+  const totalEstimatedHours = (totalEstimatedMins / 60).toFixed(1).replace(/\.0$/, "");
+  const minText = dailyMinMinutes < 60 ? `${dailyMinMinutes}m` : formatMinutesToHm(dailyMinMinutes);
 
   const handleAdd = async () => {
     if (!title.trim()) { setError("O título da tarefa é obrigatório."); return; }
     if (!startDate) { setError("A data de início é obrigatória."); return; }
     if (!endDate) { setError("A data de fim é obrigatória."); return; }
     if (endDate < startDate) { setError("A data de fim não pode ser anterior à data de início."); return; }
+    if (dailyMinMinutes < 5) { setError("O tempo mínimo diário deve ser de pelo menos 5 minutos."); return; }
     setIsSubmitting(true);
     try {
-      await onAdd(selectedQuarter, title.trim(), startDate, endDate, category, plannedMinutes);
+      await onAdd(selectedQuarter, title.trim(), startDate, endDate, category, dailyMinMinutes);
       onClose();
     } catch (err: any) {
       setError(err?.message || "Erro ao adicionar tarefa.");
@@ -1360,6 +1427,63 @@ const AddTaskModal = ({ quarters, defaultQuarterId, defaultStartDate, defaultEnd
                   Duração: <strong className="text-slate-300 font-mono font-medium">{calculateDaysDuration(startDate, endDate)}</strong>
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* Tempo Mínimo Diário com Spinners estilo Modal de Sessão */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Tempo Mínimo Diário
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5">Meta diária de estudo para esta atividade</p>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner">
+                <div className="flex flex-col items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMinHours(h => h + 1)}
+                    className="min-w-[28px] min-h-[22px] flex items-center justify-center rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-[10px] transition-all cursor-pointer"
+                  >▲</button>
+                  <span className="font-mono text-base font-semibold text-slate-100 w-6 text-center">
+                    {String(minHours).padStart(2, "0")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={decrementHours}
+                    disabled={minHours === 0}
+                    className="min-w-[28px] min-h-[22px] flex items-center justify-center rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-[10px] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  >▼</button>
+                </div>
+                <span className="font-mono text-xs text-slate-500">h</span>
+                <span className="text-slate-700">·</span>
+                <div className="flex flex-col items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={incrementMinutes}
+                    className="min-w-[28px] min-h-[22px] flex items-center justify-center rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-[10px] transition-all cursor-pointer"
+                  >▲</button>
+                  <span className="font-mono text-base font-semibold text-slate-100 w-6 text-center">
+                    {String(minMinutes).padStart(2, "0")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={decrementMinutes}
+                    disabled={minHours === 0 && minMinutes <= 5}
+                    className="min-w-[28px] min-h-[22px] flex items-center justify-center rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 text-[10px] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  >▼</button>
+                </div>
+                <span className="font-mono text-xs text-slate-500">m</span>
+              </div>
+            </div>
+
+            {/* Estimativa total calculada com o período */}
+            <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Estimativa total: <strong className="text-slate-200 font-mono font-medium">{totalEstimatedHours} h</strong> ({nDays} {nDays === 1 ? "dia" : "dias"} × {minText})
+              </span>
             </div>
           </div>
 
@@ -1630,6 +1754,19 @@ const QuarterCard = ({ quarter, onUpdate, onTaskUpdate, onTaskDelete, onAddTask 
                     className="bg-slate-900 border border-slate-700/60 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-300 outline-none"
                     style={{ colorScheme: "dark" }}
                   />
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-500 text-[11px]">Mínimo:</span>
+                    <input
+                      type="number"
+                      min={5}
+                      step={5}
+                      value={task.dailyMinMinutes || 30}
+                      onChange={e => onTaskUpdate(quarter.id, task.id, { dailyMinMinutes: Math.max(5, parseInt(e.target.value) || 5) })}
+                      className="w-14 bg-slate-900 border border-slate-700/60 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-200 outline-none"
+                      title="Meta mínima de estudo por dia (minutos)"
+                    />
+                    <span className="text-slate-500 text-[11px]">min/dia</span>
+                  </div>
                   <span className="text-[11px] text-slate-400 font-mono ml-auto">
                     {calculateDaysDuration(task.startDate, task.endDate)}
                   </span>
@@ -1895,7 +2032,8 @@ export default function App() {
               expanded: false,
               notes: t.description || "",
               category: t.category,
-              plannedMinutes: t.plannedDurationMinutes,
+              plannedMinutes: t.dailyMinMinutes || t.plannedDurationMinutes || 30,
+              dailyMinMinutes: t.dailyMinMinutes || t.plannedDurationMinutes || 30,
               actualMinutes: t.actualDurationMinutes || 0,
               xpReward: t.xpReward || 80,
             }));
@@ -2051,12 +2189,13 @@ export default function App() {
       }
     }
 
-    if (patch.title !== undefined || patch.startDate !== undefined || patch.endDate !== undefined || patch.dueDate !== undefined || patch.notes !== undefined || patch.category !== undefined) {
+    if (patch.title !== undefined || patch.startDate !== undefined || patch.endDate !== undefined || patch.dailyMinMinutes !== undefined || patch.dueDate !== undefined || patch.notes !== undefined || patch.category !== undefined) {
       try {
         await updateTask(tId, {
           title: patch.title,
           startDate: patch.startDate || patch.dueDate,
           endDate: patch.endDate || patch.startDate || patch.dueDate,
+          dailyMinMinutes: patch.dailyMinMinutes,
           description: patch.notes,
           category: patch.category,
         });
@@ -2094,7 +2233,7 @@ export default function App() {
   };
 
   // Criar Tarefa (/tasks) com validação de Auth e userId ativo
-  const handleAddTask = async (quarterId: number, title: string, startDate: string, endDate: string, category: string = "JAVA_BACKEND", plannedMinutes: number = 60) => {
+  const handleAddTask = async (quarterId: number, title: string, startDate: string, endDate: string, category: string = "JAVA_BACKEND", dailyMinMinutes: number = 30) => {
     if (!currentUser || !isAuthenticated()) {
       addToast({
         type: "error",
@@ -2106,7 +2245,7 @@ export default function App() {
     }
 
     const quarter = quarters.find(q => q.id === quarterId) || quarters[0] || DEFAULT_SEASON_QUARTERS[0];
-    const xpReward = Math.max(50, Math.round(plannedMinutes * 1.2));
+    const xpReward = Math.max(50, Math.round(dailyMinMinutes * 1.5));
 
     try {
       const createdTask = await createTask({
@@ -2114,7 +2253,8 @@ export default function App() {
         title,
         season: quarter.seasonKey,
         category,
-        plannedDurationMinutes: plannedMinutes,
+        plannedDurationMinutes: dailyMinMinutes,
+        dailyMinMinutes: dailyMinMinutes,
         startDate: startDate,
         endDate: endDate,
         xpReward,
@@ -2130,7 +2270,8 @@ export default function App() {
         expanded: false,
         notes: createdTask.description || "",
         category: createdTask.category,
-        plannedMinutes: createdTask.plannedDurationMinutes,
+        plannedMinutes: createdTask.dailyMinMinutes || dailyMinMinutes,
+        dailyMinMinutes: createdTask.dailyMinMinutes || dailyMinMinutes,
         xpReward: createdTask.xpReward,
       };
 
@@ -2142,7 +2283,8 @@ export default function App() {
         categoryColor: mapCategoryColor(createdTask.category || category),
         title: newTask.title,
         subtitle: `Roadmap · ${quarter.season} ${quarter.quarter}`,
-        plannedTime: formatMinutesToHm(plannedMinutes),
+        plannedTime: formatMinutesToHm(createdTask.dailyMinMinutes || dailyMinMinutes),
+        dailyMinMinutes: createdTask.dailyMinMinutes || dailyMinMinutes,
         actualTime: null,
         status: "pending",
         timeStart: "10:00",

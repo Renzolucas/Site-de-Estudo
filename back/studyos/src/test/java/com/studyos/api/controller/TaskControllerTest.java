@@ -64,12 +64,15 @@ class TaskControllerTest {
                 "Foco em JWT e OAuth2",
                 TaskCategory.JAVA_BACKEND,
                 SeasonCode.SUMMER,
-                120,
                 null,
+                120,
+                45,
+                0,
                 TaskStatus.PENDING,
                 LocalDate.of(2026, 9, 15),
                 LocalDate.of(2026, 9, 20),
-                100
+                100,
+                false
         );
 
         when(taskService.create(any(TaskCreateRequest.class))).thenReturn(response);
@@ -82,6 +85,7 @@ class TaskControllerTest {
                     "category": "JAVA_BACKEND",
                     "season": "SUMMER",
                     "plannedDurationMinutes": 120,
+                    "dailyMinMinutes": 45,
                     "startDate": "2026-09-15",
                     "endDate": "2026-09-20",
                     "xpReward": 100
@@ -99,6 +103,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.category").value("JAVA_BACKEND"))
                 .andExpect(jsonPath("$.season").value("SUMMER"))
                 .andExpect(jsonPath("$.plannedDurationMinutes").value(120))
+                .andExpect(jsonPath("$.dailyMinMinutes").value(45))
                 .andExpect(jsonPath("$.startDate").value("2026-09-15"))
                 .andExpect(jsonPath("$.endDate").value("2026-09-20"))
                 .andExpect(jsonPath("$.status").value("PENDING"))

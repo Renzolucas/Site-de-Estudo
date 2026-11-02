@@ -28,9 +28,11 @@ public record TaskCreateRequest(
 
         Long seasonId,
 
-        @NotNull(message = "A duração planejada em minutos é obrigatória")
         @Positive(message = "A duração planejada deve ser maior que 0 minutos")
         Integer plannedDurationMinutes,
+
+        @Positive(message = "O tempo mínimo diário deve ser maior que 0 minutos")
+        Integer dailyMinMinutes,
 
         @NotNull(message = "A data de início é obrigatória")
         LocalDate startDate,
@@ -60,6 +62,21 @@ public record TaskCreateRequest(
             LocalDate endDate,
             Integer xpReward
     ) {
-        this(userId, title, description, category, season, null, plannedDurationMinutes, startDate, endDate, xpReward);
+        this(userId, title, description, category, season, null, plannedDurationMinutes, plannedDurationMinutes, startDate, endDate, xpReward);
+    }
+
+    public TaskCreateRequest(
+            Long userId,
+            String title,
+            String description,
+            TaskCategory category,
+            SeasonCode season,
+            Long seasonId,
+            Integer plannedDurationMinutes,
+            LocalDate startDate,
+            LocalDate endDate,
+            Integer xpReward
+    ) {
+        this(userId, title, description, category, season, seasonId, plannedDurationMinutes, plannedDurationMinutes, startDate, endDate, xpReward);
     }
 }

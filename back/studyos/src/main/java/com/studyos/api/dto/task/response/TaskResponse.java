@@ -16,6 +16,7 @@ public record TaskResponse(
         SeasonCode season,
         Long seasonId,
         Integer plannedDurationMinutes,
+        Integer dailyMinMinutes,
         Integer actualDurationMinutes,
         TaskStatus status,
         LocalDate startDate,
@@ -37,7 +38,7 @@ public record TaskResponse(
             LocalDate endDate,
             Integer xpReward
     ) {
-        this(id, userId, title, description, category, season, null, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
+        this(id, userId, title, description, category, season, null, plannedDurationMinutes, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
     }
 
     public TaskResponse(
@@ -55,10 +56,16 @@ public record TaskResponse(
             LocalDate endDate,
             Integer xpReward
     ) {
-        this(id, userId, title, description, category, season, seasonId, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
+        this(id, userId, title, description, category, season, seasonId, plannedDurationMinutes, plannedDurationMinutes, actualDurationMinutes, status, startDate, endDate, xpReward, false);
     }
 
     public static TaskResponse fromEntity(Task task) {
+        Integer planned = task.getPlannedDurationMinutes();
+        Integer dailyMin = task.getDailyMinMinutes() != null ? task.getDailyMinMinutes() : planned;
+        if (planned == null) {
+            planned = dailyMin;
+        }
+
         return new TaskResponse(
                 task.getId(),
                 task.getUser() != null ? task.getUser().getId() : null,
@@ -67,13 +74,14 @@ public record TaskResponse(
                 task.getCategory(),
                 task.getSeason(),
                 task.getSeasonEntity() != null ? task.getSeasonEntity().getId() : null,
-                task.getPlannedDurationMinutes(),
+                planned,
+                dailyMin,
                 task.getActualDurationMinutes(),
                 task.getStatus(),
                 task.getStartDate(),
                 task.getEndDate(),
                 task.getXpReward(),
-                task.getStreakProcessed() != null ? task.getStreakProcessed() : false
+                task.getStreakProcessed()
         );
     }
 }

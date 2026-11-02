@@ -47,16 +47,24 @@ public class TaskService {
             seasonEntity = seasonService.getOrCreateSeasonByUserAndCode(user.getId(), request.season());
         }
 
+        int minMinutes = request.dailyMinMinutes() != null
+                ? request.dailyMinMinutes()
+                : (request.plannedDurationMinutes() != null ? request.plannedDurationMinutes() : 30);
+        int plannedMinutes = request.plannedDurationMinutes() != null
+                ? request.plannedDurationMinutes()
+                : minMinutes;
+
         int calculatedXp = request.xpReward() != null
                 ? request.xpReward()
-                : gamificationService.calculateTaskXp(request.plannedDurationMinutes(), request.category());
+                : gamificationService.calculateTaskXp(plannedMinutes, request.category());
 
         Task task = Task.builder()
                 .title(request.title())
                 .description(request.description())
                 .category(request.category())
                 .seasonEntity(seasonEntity)
-                .plannedDurationMinutes(request.plannedDurationMinutes())
+                .plannedDurationMinutes(plannedMinutes)
+                .dailyMinMinutes(minMinutes)
                 .actualDurationMinutes(0)
                 .status(TaskStatus.PENDING)
                 .streakProcessed(false)
@@ -137,6 +145,9 @@ public class TaskService {
         } else if (request.season() != null) {
             Season seasonEntity = seasonService.getOrCreateSeasonByUserAndCode(task.getUser().getId(), request.season());
             task.setSeasonEntity(seasonEntity);
+        }
+        if (request.dailyMinMinutes() != null && request.dailyMinMinutes() > 0) {
+            task.setDailyMinMinutes(request.dailyMinMinutes());
         }
         if (request.plannedDurationMinutes() != null && request.plannedDurationMinutes() > 0) {
             task.setPlannedDurationMinutes(request.plannedDurationMinutes());

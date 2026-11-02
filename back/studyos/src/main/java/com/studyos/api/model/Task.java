@@ -61,6 +61,9 @@ public class Task {
     @Column(name = "planned_duration_minutes", nullable = false)
     private Integer plannedDurationMinutes;
 
+    @Column(name = "daily_min_minutes", nullable = false)
+    private Integer dailyMinMinutes;
+
     @Builder.Default
     @Column(name = "actual_duration_minutes", nullable = false)
     private Integer actualDurationMinutes = 0;
@@ -112,6 +115,12 @@ public class Task {
         }
         if (this.endDate == null) {
             this.endDate = this.startDate;
+        }
+        if (this.dailyMinMinutes == null) {
+            this.dailyMinMinutes = this.plannedDurationMinutes != null ? this.plannedDurationMinutes : 30;
+        }
+        if (this.plannedDurationMinutes == null) {
+            this.plannedDurationMinutes = this.dailyMinMinutes;
         }
     }
 

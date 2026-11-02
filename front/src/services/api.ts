@@ -76,6 +76,7 @@ export interface TaskResponse {
   season: Season;
   seasonId?: number;
   plannedDurationMinutes: number;
+  dailyMinMinutes?: number;
   actualDurationMinutes: number | null;
   status: TaskStatus;
   startDate: string;
@@ -106,6 +107,7 @@ export interface TaskCreatePayload {
   season?: Season | string;
   plannedDurationMinutes?: number;
   plannedMinutes?: number;
+  dailyMinMinutes?: number;
   startDate?: string;
   endDate?: string;
   xpReward?: number;
@@ -342,6 +344,8 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
   const defaultDate = getLocalDateString();
   const startDate = taskData.startDate || defaultDate;
   const endDate = taskData.endDate || startDate;
+  const dailyMinMinutes = Number(taskData.dailyMinMinutes || taskData.plannedDurationMinutes || taskData.plannedMinutes || 30);
+  const plannedDurationMinutes = Number(taskData.plannedDurationMinutes || taskData.plannedMinutes || dailyMinMinutes);
 
   const payload = {
     userId: taskData.userId || DEFAULT_USER_ID,
@@ -349,7 +353,8 @@ export async function createTask(taskData: TaskCreatePayload): Promise<TaskRespo
     description: taskData.description || taskData.notes || '',
     category: validCategory,
     season: validSeason,
-    plannedDurationMinutes: Number(taskData.plannedDurationMinutes || taskData.plannedMinutes || 60),
+    plannedDurationMinutes: plannedDurationMinutes,
+    dailyMinMinutes: dailyMinMinutes,
     startDate: startDate,
     endDate: endDate,
     xpReward: Number(taskData.xpReward !== undefined ? taskData.xpReward : 80),
@@ -373,6 +378,7 @@ export async function updateTask(taskId: number, taskData: Partial<TaskCreatePay
     category: taskData.category ? taskData.category.toUpperCase().replace(/\s+/g, '_') : undefined,
     season: taskData.season ? taskData.season.toUpperCase() : undefined,
     plannedDurationMinutes: taskData.plannedDurationMinutes,
+    dailyMinMinutes: taskData.dailyMinMinutes,
     startDate: taskData.startDate,
     endDate: taskData.endDate,
     xpReward: taskData.xpReward,

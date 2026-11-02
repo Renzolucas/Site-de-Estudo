@@ -24,6 +24,9 @@ public record TaskUpdateRequest(
         @Positive(message = "A duração planejada deve ser maior que 0 minutos")
         Integer plannedDurationMinutes,
 
+        @Positive(message = "O tempo mínimo diário deve ser maior que 0 minutos")
+        Integer dailyMinMinutes,
+
         LocalDate startDate,
 
         LocalDate endDate,
@@ -49,6 +52,20 @@ public record TaskUpdateRequest(
             LocalDate endDate,
             Integer xpReward
     ) {
-        this(title, description, category, season, null, plannedDurationMinutes, startDate, endDate, xpReward);
+        this(title, description, category, season, null, plannedDurationMinutes, plannedDurationMinutes, startDate, endDate, xpReward);
+    }
+
+    public TaskUpdateRequest(
+            String title,
+            String description,
+            TaskCategory category,
+            SeasonCode season,
+            Long seasonId,
+            Integer plannedDurationMinutes,
+            LocalDate startDate,
+            LocalDate endDate,
+            Integer xpReward
+    ) {
+        this(title, description, category, season, seasonId, plannedDurationMinutes, plannedDurationMinutes, startDate, endDate, xpReward);
     }
 }
