@@ -4,12 +4,14 @@ import com.studyos.api.dto.task.request.TaskCreateRequest;
 import com.studyos.api.dto.task.request.TaskUpdateRequest;
 import com.studyos.api.dto.task.response.TaskResponse;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
+import com.studyos.api.model.Season;
 import com.studyos.api.model.Task;
 import com.studyos.api.model.User;
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.service.gamification.GamificationService;
+import com.studyos.api.service.season.SeasonService;
 import com.studyos.api.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,10 +26,18 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserService userService;
     private final GamificationService gamificationService;
+    private final SeasonService seasonService;
 
     @Transactional
     public TaskResponse create(TaskCreateRequest request) {
         User user = userService.findEntityById(request.userId());
+
+        Season seasonEntity = null;
+        if (request.seasonId() != null) {
+            seasonEntity = seasonService.findEntityById(request.seasonId());
+        } else if (request.season() != null) {
+            seasonEntity = seasonService.getOrCreateSeasonByUserAndCode(user.getId(), request.season());
+        }
 
         int calculatedXp = request.xpReward() != null
                 ? request.xpReward()
@@ -37,7 +47,7 @@ public class TaskService {
                 .title(request.title())
                 .description(request.description())
                 .category(request.category())
-                .season(request.season())
+                .seasonEntity(seasonEntity)
                 .plannedDurationMinutes(request.plannedDurationMinutes())
                 .actualDurationMinutes(0)
                 .status(TaskStatus.PENDING)
@@ -73,9 +83,18 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> findByUserIdAndSeason(Long userId, Season season) {
+    public List<TaskResponse> findByUserIdAndSeason(Long userId, SeasonCode season) {
         userService.findEntityById(userId);
         return taskRepository.findByUserIdAndSeason(userId, season)
+                .stream()
+                .map(TaskResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskResponse> findByUserIdAndSeasonId(Long userId, Long seasonId) {
+        userService.findEntityById(userId);
+        return taskRepository.findByUserIdAndSeasonId(userId, seasonId)
                 .stream()
                 .map(TaskResponse::fromEntity)
                 .toList();
@@ -103,8 +122,12 @@ public class TaskService {
         if (request.category() != null) {
             task.setCategory(request.category());
         }
-        if (request.season() != null) {
-            task.setSeason(request.season());
+        if (request.seasonId() != null) {
+            Season seasonEntity = seasonService.findEntityById(request.seasonId());
+            task.setSeasonEntity(seasonEntity);
+        } else if (request.season() != null) {
+            Season seasonEntity = seasonService.getOrCreateSeasonByUserAndCode(task.getUser().getId(), request.season());
+            task.setSeasonEntity(seasonEntity);
         }
         if (request.plannedDurationMinutes() != null && request.plannedDurationMinutes() > 0) {
             task.setPlannedDurationMinutes(request.plannedDurationMinutes());

@@ -1,7 +1,7 @@
 package com.studyos.api.dto.task.response;
 
 import com.studyos.api.model.Task;
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
 
@@ -13,7 +13,8 @@ public record TaskResponse(
         String title,
         String description,
         TaskCategory category,
-        Season season,
+        SeasonCode season,
+        Long seasonId,
         Integer plannedDurationMinutes,
         Integer actualDurationMinutes,
         TaskStatus status,
@@ -27,14 +28,31 @@ public record TaskResponse(
             String title,
             String description,
             TaskCategory category,
-            Season season,
+            SeasonCode season,
             Integer plannedDurationMinutes,
             Integer actualDurationMinutes,
             TaskStatus status,
             LocalDate targetDate,
             Integer xpReward
     ) {
-        this(id, userId, title, description, category, season, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
+        this(id, userId, title, description, category, season, null, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
+    }
+
+    public TaskResponse(
+            Long id,
+            Long userId,
+            String title,
+            String description,
+            TaskCategory category,
+            SeasonCode season,
+            Long seasonId,
+            Integer plannedDurationMinutes,
+            Integer actualDurationMinutes,
+            TaskStatus status,
+            LocalDate targetDate,
+            Integer xpReward
+    ) {
+        this(id, userId, title, description, category, season, seasonId, plannedDurationMinutes, actualDurationMinutes, status, targetDate, xpReward, false);
     }
 
     public static TaskResponse fromEntity(Task task) {
@@ -45,6 +63,7 @@ public record TaskResponse(
                 task.getDescription(),
                 task.getCategory(),
                 task.getSeason(),
+                task.getSeasonEntity() != null ? task.getSeasonEntity().getId() : null,
                 task.getPlannedDurationMinutes(),
                 task.getActualDurationMinutes(),
                 task.getStatus(),

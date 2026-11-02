@@ -1,6 +1,6 @@
 package com.studyos.api.dto.task.request;
 
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,8 +23,9 @@ public record TaskCreateRequest(
         @NotNull(message = "A categoria da tarefa é obrigatória")
         TaskCategory category,
 
-        @NotNull(message = "A estação do ano é obrigatória para o roadmap")
-        Season season,
+        SeasonCode season,
+
+        Long seasonId,
 
         @NotNull(message = "A duração planejada em minutos é obrigatória")
         @Positive(message = "A duração planejada deve ser maior que 0 minutos")
@@ -34,4 +35,17 @@ public record TaskCreateRequest(
 
         @PositiveOrZero(message = "O XP de recompensa deve ser positivo ou zero")
         Integer xpReward
-) {}
+) {
+    public TaskCreateRequest(
+            Long userId,
+            String title,
+            String description,
+            TaskCategory category,
+            SeasonCode season,
+            Integer plannedDurationMinutes,
+            LocalDate targetDate,
+            Integer xpReward
+    ) {
+        this(userId, title, description, category, season, null, plannedDurationMinutes, targetDate, xpReward);
+    }
+}

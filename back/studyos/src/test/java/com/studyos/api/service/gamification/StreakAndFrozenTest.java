@@ -3,9 +3,11 @@ package com.studyos.api.service.gamification;
 import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.model.Task;
 import com.studyos.api.model.User;
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
+import com.studyos.api.repository.season.SeasonRepository;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.user.UserRepository;
 import com.studyos.api.dto.timelog.request.TimeLogCreateRequest;
@@ -50,13 +52,18 @@ class StreakAndFrozenTest {
     private UserRepository userRepository;
 
     @Autowired
+    private SeasonRepository seasonRepository;
+
+    @Autowired
     private TaskRepository taskRepository;
 
     private User testUser;
+    private Season testSeason;
 
     @BeforeEach
     void setUp() {
         taskRepository.deleteAll();
+        seasonRepository.deleteAll();
         userRepository.deleteAll();
 
         User user = User.builder()
@@ -69,6 +76,13 @@ class StreakAndFrozenTest {
                 .frozenCount(0)
                 .build();
         testUser = userRepository.save(user);
+
+        testSeason = seasonRepository.save(Season.builder()
+                .code(SeasonCode.SUMMER)
+                .title("Verão")
+                .quarter("Q1")
+                .user(testUser)
+                .build());
     }
 
     @Test
@@ -80,7 +94,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Revisão de conceitos")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(30)
                 .status(TaskStatus.PENDING)
                 .xpReward(0)
@@ -104,7 +118,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Implementação de API REST")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(60)
                 .status(TaskStatus.PENDING)
                 .xpReward(80)
@@ -128,7 +142,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Modelagem de Banco")
                 .category(TaskCategory.DATABASE)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(45)
                 .status(TaskStatus.PENDING)
                 .xpReward(60)
@@ -157,7 +171,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Design de Arquitetura")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(60)
                 .status(TaskStatus.PENDING)
                 .xpReward(100)
@@ -181,7 +195,7 @@ class StreakAndFrozenTest {
         Task nextTask = Task.builder()
                 .title("Exercícios de Java")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(45)
                 .status(TaskStatus.PENDING)
                 .xpReward(50)
@@ -205,7 +219,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Algoritmos avançados")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(60)
                 .status(TaskStatus.PENDING)
                 .xpReward(90)
@@ -229,7 +243,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Containers Docker")
                 .category(TaskCategory.DEVOPS)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(40)
                 .status(TaskStatus.PENDING)
                 .xpReward(50)
@@ -259,7 +273,7 @@ class StreakAndFrozenTest {
             Task t = Task.builder()
                     .title("Tarefa Histórica " + i)
                     .category(TaskCategory.JAVA_BACKEND)
-                    .season(Season.SUMMER)
+                    .season(testSeason)
                     .plannedDurationMinutes(60)
                     .status(TaskStatus.COMPLETED)
                     .xpReward(100)
@@ -270,7 +284,7 @@ class StreakAndFrozenTest {
         Task zeroXpTask = Task.builder()
                 .title("Tarefa 0 XP")
                 .category(TaskCategory.ENGLISH)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(15)
                 .status(TaskStatus.COMPLETED)
                 .xpReward(0)
@@ -291,7 +305,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Tarefa API")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(60)
                 .status(TaskStatus.PENDING)
                 .xpReward(80)
@@ -337,7 +351,7 @@ class StreakAndFrozenTest {
         Task task = Task.builder()
                 .title("Sessão Pomodoro de Java")
                 .category(TaskCategory.JAVA_BACKEND)
-                .season(Season.SUMMER)
+                .season(testSeason)
                 .plannedDurationMinutes(60)
                 .status(TaskStatus.PENDING)
                 .xpReward(80)

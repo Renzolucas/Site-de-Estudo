@@ -4,7 +4,7 @@ import com.studyos.api.dto.task.request.TaskCreateRequest;
 import com.studyos.api.dto.task.request.TaskStatusUpdateRequest;
 import com.studyos.api.dto.task.request.TaskUpdateRequest;
 import com.studyos.api.dto.task.response.TaskResponse;
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.service.task.TaskService;
 import jakarta.validation.Valid;
@@ -51,9 +51,13 @@ public class TaskController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<TaskResponse>> findByUser(
             @PathVariable Long userId,
-            @RequestParam(required = false) Season season,
+            @RequestParam(required = false) SeasonCode season,
+            @RequestParam(required = false) Long seasonId,
             @RequestParam(required = false) TaskStatus status) {
 
+        if (seasonId != null) {
+            return ResponseEntity.ok(taskService.findByUserIdAndSeasonId(userId, seasonId));
+        }
         if (season != null) {
             return ResponseEntity.ok(taskService.findByUserIdAndSeason(userId, season));
         }

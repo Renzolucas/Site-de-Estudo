@@ -4,7 +4,7 @@ import com.studyos.api.controller.task.TaskController;
 import com.studyos.api.dto.task.request.TaskCreateRequest;
 import com.studyos.api.dto.task.request.TaskUpdateRequest;
 import com.studyos.api.dto.task.response.TaskResponse;
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.service.task.TaskService;
@@ -60,7 +60,7 @@ class TaskControllerTest {
                 "Estudar Spring Security",
                 "Foco em JWT e OAuth2",
                 TaskCategory.JAVA_BACKEND,
-                Season.SUMMER,
+                SeasonCode.SUMMER,
                 120,
                 null,
                 TaskStatus.PENDING,
@@ -107,7 +107,7 @@ class TaskControllerTest {
                 "Estudar Spring Security",
                 "Foco em JWT",
                 TaskCategory.JAVA_BACKEND,
-                Season.SUMMER,
+                SeasonCode.SUMMER,
                 120,
                 null,
                 TaskStatus.PENDING,
@@ -127,8 +127,8 @@ class TaskControllerTest {
     @DisplayName("GET /api/v1/tasks/user/{userId} - Deve listar tarefas do usuário")
     void shouldFindTasksByUser() throws Exception {
         List<TaskResponse> list = List.of(
-                new TaskResponse(1L, 1L, "Task 1", "Desc 1", TaskCategory.JAVA_BACKEND, Season.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80),
-                new TaskResponse(2L, 1L, "Task 2", "Desc 2", TaskCategory.FRONTEND, Season.AUTUMN, 90, null, TaskStatus.COMPLETED, LocalDate.now(), 90)
+                new TaskResponse(1L, 1L, "Task 1", "Desc 1", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80),
+                new TaskResponse(2L, 1L, "Task 2", "Desc 2", TaskCategory.FRONTEND, SeasonCode.AUTUMN, 90, null, TaskStatus.COMPLETED, LocalDate.now(), 90)
         );
 
         when(taskService.findByUserId(1L)).thenReturn(list);
@@ -144,10 +144,10 @@ class TaskControllerTest {
     @DisplayName("GET /api/v1/tasks/user/{userId}?season=SUMMER - Deve filtrar tarefas por estação")
     void shouldFindTasksByUserAndSeason() throws Exception {
         List<TaskResponse> list = List.of(
-                new TaskResponse(1L, 1L, "Task Summer", "Desc", TaskCategory.JAVA_BACKEND, Season.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80)
+                new TaskResponse(1L, 1L, "Task Summer", "Desc", TaskCategory.JAVA_BACKEND, SeasonCode.SUMMER, 60, null, TaskStatus.PENDING, LocalDate.now(), 80)
         );
 
-        when(taskService.findByUserIdAndSeason(1L, Season.SUMMER)).thenReturn(list);
+        when(taskService.findByUserIdAndSeason(1L, SeasonCode.SUMMER)).thenReturn(list);
 
         mockMvc.perform(get("/api/v1/tasks/user/1?season=SUMMER"))
                 .andExpect(status().isOk())
@@ -164,7 +164,7 @@ class TaskControllerTest {
                 "Título Atualizado",
                 "Nova Descrição",
                 TaskCategory.DATABASE,
-                Season.AUTUMN,
+                SeasonCode.AUTUMN,
                 90,
                 null,
                 TaskStatus.IN_PROGRESS,
@@ -204,7 +204,7 @@ class TaskControllerTest {
                 "Estudo",
                 "Desc",
                 TaskCategory.JAVA_BACKEND,
-                Season.SUMMER,
+                SeasonCode.SUMMER,
                 60,
                 60,
                 TaskStatus.COMPLETED,

@@ -1,6 +1,6 @@
 package com.studyos.api.dto.task.request;
 
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -16,7 +16,9 @@ public record TaskUpdateRequest(
 
         TaskCategory category,
 
-        Season season,
+        SeasonCode season,
+
+        Long seasonId,
 
         @Positive(message = "A duração planejada deve ser maior que 0 minutos")
         Integer plannedDurationMinutes,
@@ -25,4 +27,16 @@ public record TaskUpdateRequest(
 
         @PositiveOrZero(message = "O XP de recompensa deve ser positivo ou zero")
         Integer xpReward
-) {}
+) {
+    public TaskUpdateRequest(
+            String title,
+            String description,
+            TaskCategory category,
+            SeasonCode season,
+            Integer plannedDurationMinutes,
+            LocalDate targetDate,
+            Integer xpReward
+    ) {
+        this(title, description, category, season, null, plannedDurationMinutes, targetDate, xpReward);
+    }
+}

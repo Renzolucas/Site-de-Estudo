@@ -1,6 +1,6 @@
 package com.studyos.api.model.enums;
 
-public enum Season {
+public enum SeasonCode {
     SUMMER,
     AUTUMN,
     WINTER,

@@ -1,6 +1,6 @@
 package com.studyos.api.model;
 
-import com.studyos.api.model.enums.Season;
+import com.studyos.api.model.enums.SeasonCode;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
 import jakarta.persistence.CascadeType;
@@ -53,9 +53,10 @@ public class Task {
     @Column(nullable = false, length = 50)
     private TaskCategory category;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Season season;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "season_id")
+    @ToString.Exclude
+    private Season seasonEntity;
 
     @Column(name = "planned_duration_minutes", nullable = false)
     private Integer plannedDurationMinutes;
@@ -102,6 +103,26 @@ public class Task {
         }
         if (this.streakProcessed == null) {
             this.streakProcessed = false;
+        }
+    }
+
+    public SeasonCode getSeason() {
+        return seasonEntity != null ? seasonEntity.getCode() : null;
+    }
+
+    public void setSeason(Season seasonEntity) {
+        this.seasonEntity = seasonEntity;
+    }
+
+    public static class TaskBuilder {
+        public TaskBuilder season(Season season) {
+            this.seasonEntity = season;
+            return this;
+        }
+
+        public TaskBuilder seasonEntity(Season seasonEntity) {
+            this.seasonEntity = seasonEntity;
+            return this;
         }
     }
 }

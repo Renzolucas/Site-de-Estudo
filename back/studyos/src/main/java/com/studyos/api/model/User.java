@@ -67,6 +67,11 @@ public class User {
     @ToString.Exclude
     private List<Task> tasks = new ArrayList<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    private List<Season> seasons = new ArrayList<>();
+
     @PrePersist
     public void prePersist() {
         if (this.level == null) {
