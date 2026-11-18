@@ -656,6 +656,117 @@ export async function updateSeason(
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. RECUPERAÇÃO DE SENHA (/auth/forgot-password, /auth/verify-reset-code, /auth/reset-password)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ForgotPasswordResponse {
+  message: string;
+  demoCode?: string;
+}
+
+export interface VerifyResetCodePayload {
+  email: string;
+  code: string;
+}
+
+export interface VerifyResetCodeResponse {
+  message: string;
+  valid: boolean;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+}
+
+/**
+ * Solicita envio de código de verificação para recuperação de senha (POST /auth/forgot-password).
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  if (!email || !email.trim()) {
+    throw new Error('O e-mail é obrigatório.');
+  }
+  return await fetchApi<ForgotPasswordResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+}
+
+/**
+ * Valida se o código de 6 dígitos informado está correto e dentro da validade (POST /auth/verify-reset-code).
+ */
+export async function verifyResetCode(payload: VerifyResetCodePayload): Promise<VerifyResetCodeResponse> {
+  if (!payload || !payload.email || !payload.code) {
+    throw new Error('E-mail e código são obrigatórios.');
+  }
+  return await fetchApi<VerifyResetCodeResponse>('/auth/verify-reset-code', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: payload.email.trim().toLowerCase(),
+      code: payload.code.trim(),
+    }),
+  });
+}
+
+/**
+ * Redefine a senha do usuário utilizando o código de verificação (POST /auth/reset-password).
+ */
+export async function resetPassword(payload: ResetPasswordPayload): Promise<ResetPasswordResponse> {
+  if (!payload || !payload.email || !payload.code || !payload.newPassword) {
+    throw new Error('E-mail, código e nova senha são obrigatórios.');
+  }
+  return await fetchApi<ResetPasswordResponse>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: payload.email.trim().toLowerCase(),
+      code: payload.code.trim(),
+      newPassword: payload.newPassword,
+    }),
+  });
+}
+
+/**
+ * Atualiza o nome do usuário autenticado (PATCH /users/me).
+ */
+export async function updateCurrentUserName(name: string): Promise<UserProfileResponse> {
+  const cleanName = (name || '').trim();
+  if (!cleanName) {
+    throw new Error('O nome é obrigatório.');
+  }
+  return await fetchApi<UserProfileResponse>('/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ name: cleanName }),
+  });
+}
+
+/**
+ * Altera a senha do usuário autenticado (POST /auth/change-password).
+ */
+export async function changePassword(payload: ChangePasswordPayload): Promise<ChangePasswordResponse> {
+  if (!payload || !payload.currentPassword || !payload.newPassword) {
+    throw new Error('A senha atual e a nova senha são obrigatórias.');
+  }
+  return await fetchApi<ChangePasswordResponse>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 const api = {
   getTasksBySeason,
   getTasks,
@@ -679,6 +790,11 @@ const api = {
   checkApiHealth,
   getSeasonsByUser,
   updateSeason,
+  forgotPassword,
+  verifyResetCode,
+  resetPassword,
+  updateCurrentUserName,
+  changePassword,
 };
 
 export default api;
