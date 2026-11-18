@@ -12,6 +12,7 @@ import com.studyos.api.exception.custom.UnauthorizedException;
 import com.studyos.api.model.User;
 import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.model.enums.TaskStatus;
+import com.studyos.api.model.enums.UserRole;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.timelog.TimeLogRepository;
 import com.studyos.api.repository.user.UserRepository;
@@ -45,6 +46,9 @@ public class UserService {
                 .name(request.name())
                 .email(request.email())
                 .password(request.password())
+                .role(UserRole.STUDENT)
+                .active(true)
+                .mentor(null)
                 .level(1)
                 .currentXp(0L)
                 .streakDays(0)
@@ -120,18 +124,27 @@ public class UserService {
         }
 
         Long userId = jwtTokenService.extractUserId(token);
+        User user = null;
         if (userId != null) {
-            return userRepository.findById(userId)
+            user = userRepository.findById(userId)
                     .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        } else {
+            String email = jwtTokenService.extractEmail(token);
+            if (email != null) {
+                user = userRepository.findByEmail(email)
+                        .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+            }
         }
 
-        String email = jwtTokenService.extractEmail(token);
-        if (email != null) {
-            return userRepository.findByEmail(email)
-                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        if (user == null) {
+            throw new UnauthorizedException("Token inválido.");
         }
 
-        throw new UnauthorizedException("Token inválido.");
+        if (Boolean.FALSE.equals(user.getActive())) {
+            throw new UnauthorizedException("Conta de usuário inativa.");
+        }
+
+        return user;
     }
 
     @Transactional(readOnly = true)

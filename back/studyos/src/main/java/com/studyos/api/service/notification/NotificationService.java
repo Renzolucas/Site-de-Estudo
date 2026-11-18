@@ -215,17 +215,26 @@ public class NotificationService {
         }
 
         Long userId = jwtTokenService.extractUserId(token);
+        User user = null;
         if (userId != null) {
-            return userRepository.findById(userId)
+            user = userRepository.findById(userId)
                     .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        } else {
+            String email = jwtTokenService.extractEmail(token);
+            if (email != null) {
+                user = userRepository.findByEmail(email)
+                        .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+            }
         }
 
-        String email = jwtTokenService.extractEmail(token);
-        if (email != null) {
-            return userRepository.findByEmail(email)
-                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        if (user == null) {
+            throw new UnauthorizedException("Token inválido.");
         }
 
-        throw new UnauthorizedException("Token inválido.");
+        if (Boolean.FALSE.equals(user.getActive())) {
+            throw new UnauthorizedException("Conta de usuário inativa.");
+        }
+
+        return user;
     }
 }

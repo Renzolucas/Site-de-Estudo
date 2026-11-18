@@ -13,7 +13,9 @@ import com.studyos.api.dto.auth.response.VerifyResetCodeResponse;
 import com.studyos.api.dto.user.request.UserRegisterRequest;
 import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.exception.custom.BusinessRuleException;
+import com.studyos.api.exception.custom.ForbiddenException;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
+import com.studyos.api.exception.custom.UnauthorizedException;
 import com.studyos.api.model.User;
 import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.repository.user.UserRepository;
@@ -53,6 +55,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .orElseThrow(() -> new BusinessRuleException("Credenciais inválidas: e-mail ou senha incorretos."));
 
+        // Se o usuário estiver inativo, responda 403 com código ACCOUNT_DISABLED
+        if (Boolean.FALSE.equals(user.getActive())) {
+            throw new ForbiddenException("ACCOUNT_DISABLED", "Conta desativada. Procure o administrador.");
+        }
+
         // Verificação de senha
         if (!user.getPassword().equals(request.password())) {
             throw new BusinessRuleException("Credenciais inválidas: e-mail ou senha incorretos.");
@@ -75,23 +82,33 @@ public class AuthService {
     @Transactional
     public UserResponse getAuthenticatedUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new BusinessRuleException("Token de autorização não fornecido ou formato inválido.");
+            throw new UnauthorizedException("Token de autorização não fornecido ou formato inválido.");
         }
 
         String token = authHeader.substring(7).trim();
         if (!jwtTokenService.validateToken(token)) {
-            throw new BusinessRuleException("Token JWT inválido ou expirado.");
+            throw new UnauthorizedException("Token JWT inválido ou expirado.");
         }
 
         Long userId = jwtTokenService.extractUserId(token);
-        if (userId == null) {
+        User user;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        } else {
             String email = jwtTokenService.extractEmail(token);
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new ResourceNotFoundException("Usuário do token não encontrado."));
-            return userService.findById(user.getId());
+            if (email == null) {
+                throw new UnauthorizedException("Token inválido.");
+            }
+            user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
         }
 
-        return userService.findById(userId);
+        if (Boolean.FALSE.equals(user.getActive())) {
+            throw new UnauthorizedException("Conta de usuário inativa.");
+        }
+
+        return userService.findById(user.getId());
     }
 
     @Transactional

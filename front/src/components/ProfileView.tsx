@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { UserProfileResponse } from "../services/api";
 import { updateCurrentUserName, changePassword } from "../services/api";
+import { RoleBadge, getRoleConfig } from "./roles";
 
 interface ProfileViewProps {
   user: UserProfileResponse;
@@ -46,6 +47,7 @@ export default function ProfileView({
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   // Cálculos de Gamificação
+  const isStaff = user.role === "MENTOR" || user.role === "ADMIN";
   const currentLevel = user.level || 1;
   const currentXpInLevel = (user.currentXp || 0) % 500;
   const maxXpInLevel = 500;
@@ -401,6 +403,59 @@ export default function ProfileView({
                   O e-mail é usado para entrar e não pode ser alterado por aqui.
                 </p>
               </div>
+
+              {/* Linha Mentor responsável (somente leitura - apenas para estudantes) */}
+              {!isStaff && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                    Mentor responsável
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      value={user.mentor?.name || "Você ainda não tem mentor vinculado"}
+                      readOnly
+                      disabled
+                      className="w-full min-h-[44px] pl-10 pr-4 py-2 rounded-xl text-sm text-slate-400 bg-slate-950/40 border border-slate-800/80 cursor-not-allowed select-all"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5 pl-1 flex items-start gap-1.5 leading-relaxed">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="flex-shrink-0 text-slate-500 mt-0.5"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    <span>
+                      Seu mentor acompanha seu progresso (horas estudadas, XP e tarefas), mas não vê suas anotações nem seu e-mail.
+                    </span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -768,59 +823,70 @@ export default function ProfileView({
               {user.email}
             </p>
 
-            {/* Badge Nível */}
-            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
-              <span>Nível {currentLevel}</span>
-              <span>·</span>
-              <span>{getLevelTitle(currentLevel)}</span>
-            </div>
+            {isStaff ? (
+              <div className="w-full mt-4 pt-4 border-t border-slate-800/60 flex flex-col items-center gap-3">
+                <RoleBadge role={user.role} size="lg" />
+                <p className="text-xs text-slate-400 leading-relaxed max-w-xs">
+                  {getRoleConfig(user.role).description}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Badge Nível */}
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
+                  <span>Nível {currentLevel}</span>
+                  <span>·</span>
+                  <span>{getLevelTitle(currentLevel)}</span>
+                </div>
 
-            {/* Barra de Progresso de XP */}
-            <div className="w-full mt-5 pt-4 border-t border-slate-800/60">
-              <div className="flex justify-between items-center text-xs text-slate-400 mb-1.5">
-                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                  Progresso de XP
-                </span>
-                <span className="font-mono text-indigo-400 font-semibold">
-                  {currentXpInLevel} / {maxXpInLevel} XP
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
-                  style={{ width: `${xpPercent}%` }}
-                />
-              </div>
-            </div>
+                {/* Barra de Progresso de XP */}
+                <div className="w-full mt-5 pt-4 border-t border-slate-800/60">
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-1.5">
+                    <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                      Progresso de XP
+                    </span>
+                    <span className="font-mono text-indigo-400 font-semibold">
+                      {currentXpInLevel} / {maxXpInLevel} XP
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
+                      style={{ width: `${xpPercent}%` }}
+                    />
+                  </div>
+                </div>
 
-            {/* Chips de Sequência (Streak) e Proteção (Frozen) */}
-            <div className="grid grid-cols-2 gap-2.5 w-full mt-4">
-              <div
-                className="flex flex-col items-center justify-center p-3 rounded-xl border border-amber-900/50 bg-amber-950/20"
-                title={`${user.streakDays || 0} dias consecutivos de estudo`}
-              >
-                <span className="text-lg">🔥</span>
-                <span className="text-xs font-bold text-amber-400 mt-1">
-                  {user.streakDays || 0} dias
-                </span>
-                <span className="text-[10px] text-amber-500/80 uppercase tracking-wider font-medium">
-                  Sequência
-                </span>
-              </div>
+                {/* Chips de Sequência (Streak) e Proteção (Frozen) */}
+                <div className="grid grid-cols-2 gap-2.5 w-full mt-4">
+                  <div
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-amber-900/50 bg-amber-950/20"
+                    title={`${user.streakDays || 0} dias consecutivos de estudo`}
+                  >
+                    <span className="text-lg">🔥</span>
+                    <span className="text-xs font-bold text-amber-400 mt-1">
+                      {user.streakDays || 0} dias
+                    </span>
+                    <span className="text-[10px] text-amber-500/80 uppercase tracking-wider font-medium">
+                      Sequência
+                    </span>
+                  </div>
 
-              <div
-                className="flex flex-col items-center justify-center p-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20"
-                title={`Proteção de Streak: ${user.frozenCount || 0} Frozen (+1 a cada 30 dias de streak)`}
-              >
-                <span className="text-lg">🧊</span>
-                <span className="text-xs font-bold text-cyan-300 mt-1">
-                  {user.frozenCount || 0} Frozen
-                </span>
-                <span className="text-[10px] text-cyan-500/80 uppercase tracking-wider font-medium">
-                  Proteção
-                </span>
-              </div>
-            </div>
+                  <div
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20"
+                    title={`Proteção de Streak: ${user.frozenCount || 0} Frozen (+1 a cada 30 dias de streak)`}
+                  >
+                    <span className="text-lg">🧊</span>
+                    <span className="text-xs font-bold text-cyan-300 mt-1">
+                      {user.frozenCount || 0} Frozen
+                    </span>
+                    <span className="text-[10px] text-cyan-500/80 uppercase tracking-wider font-medium">
+                      Proteção
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

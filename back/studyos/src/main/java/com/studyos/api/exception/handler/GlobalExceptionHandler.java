@@ -1,6 +1,7 @@
 package com.studyos.api.exception.handler;
 
 import com.studyos.api.exception.custom.BusinessRuleException;
+import com.studyos.api.exception.custom.ForbiddenException;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
 import com.studyos.api.exception.custom.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,19 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException ex,
+                                                          HttpServletRequest request) {
+        log.warn("Acesso proibido: {} ({})", ex.getMessage(), ex.getErrorCode());
+        ErrorResponse error = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                ex.getErrorCode() != null ? ex.getErrorCode() : "FORBIDDEN",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
     @ExceptionHandler(BusinessRuleException.class)

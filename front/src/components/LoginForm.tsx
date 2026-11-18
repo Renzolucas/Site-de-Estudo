@@ -38,8 +38,12 @@ export default function LoginForm({ onSuccess, onSwitchToRegister, onSwitchToFor
       onSuccess(authData.user);
     } catch (err: any) {
       setIsLoading(false);
-      const errorMsg =
-        err?.message || "Credenciais inválidas. Verifique seu e-mail e senha.";
+      const isAccountDisabled =
+        err?.data?.error === "ACCOUNT_DISABLED" ||
+        err?.message?.includes("Conta desativada");
+      const errorMsg = isAccountDisabled
+        ? "Conta desativada. Procure o administrador."
+        : err?.message || "Credenciais inválidas. Verifique seu e-mail e senha.";
       setError(errorMsg);
     }
   };

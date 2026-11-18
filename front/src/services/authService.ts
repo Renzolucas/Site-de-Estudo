@@ -39,11 +39,17 @@ export function setToken(token: string): void {
 
 /**
  * Obtém os dados do usuário autenticado do localStorage.
+ * Se o usuário salvo não possuir role, assume 'STUDENT'.
  */
 export function getStoredUser(): UserProfileResponse | null {
   try {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const user: UserProfileResponse = JSON.parse(raw);
+    if (user && !user.role) {
+      user.role = "STUDENT";
+    }
+    return user;
   } catch {
     return null;
   }

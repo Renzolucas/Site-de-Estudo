@@ -129,14 +129,24 @@ export interface TimeLogResponse {
   createdAt: string;
 }
 
+export type UserRole = 'STUDENT' | 'MENTOR' | 'ADMIN';
+
+export interface UserMentorResponse {
+  id: number;
+  name: string;
+}
+
 export interface UserProfileResponse {
   id: number;
   name: string;
   email: string;
+  role?: UserRole;
+  mentor?: UserMentorResponse | null;
   level: number;
   currentXp: number;
   streakDays: number;
   frozenCount?: number;
+  active?: boolean;
 }
 
 export interface StudyStatsResponse {
@@ -188,6 +198,26 @@ export interface UserLoginPayload {
   password?: string;
 }
 
+type ForbiddenListener = (message: string) => void;
+const forbiddenListeners: Set<ForbiddenListener> = new Set();
+
+export function onForbidden(listener: ForbiddenListener): () => void {
+  forbiddenListeners.add(listener);
+  return () => {
+    forbiddenListeners.delete(listener);
+  };
+}
+
+export function notifyForbidden(message = 'Você não tem permissão para esta ação.'): void {
+  forbiddenListeners.forEach((listener) => {
+    try {
+      listener(message);
+    } catch {
+      // Ignora erro no listener
+    }
+  });
+}
+
 /**
  * Função utilitária para requisições HTTP padronizadas com envio automático de Token JWT e tratamento de 401/403
  */
@@ -208,12 +238,26 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   try {
     const response = await fetch(url, config);
 
-    // Se o backend retornar 401 Unauthorized ou 403 Forbidden, limpa o token e notifica
-    if (response.status === 401 || response.status === 403) {
+    // Se o backend retornar 401 Unauthorized, limpa o token e notifica (encerra sessão)
+    if (response.status === 401) {
       handleUnauthorized();
       const errorMessage = 'Sessão expirada ou não autorizada. Por favor, faça login novamente.';
       const error = new Error(errorMessage) as Error & { status?: number };
-      error.status = response.status;
+      error.status = 401;
+      throw error;
+    }
+
+    // Se o backend retornar 403 Forbidden, NÃO encerra a sessão (apenas notifica acesso negado ou conta desativada)
+    if (response.status === 403) {
+      const data = await response.json().catch(() => null);
+      const isAccountDisabled = data?.error === 'ACCOUNT_DISABLED';
+      const errorMessage = data?.message || (isAccountDisabled ? 'Conta desativada. Procure o administrador.' : 'Você não tem permissão para esta ação.');
+      if (!isAccountDisabled) {
+        notifyForbidden(errorMessage);
+      }
+      const error = new Error(errorMessage) as Error & { status?: number; data?: unknown };
+      error.status = 403;
+      error.data = data;
       throw error;
     }
 
@@ -869,6 +913,8 @@ const api = {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
+  onForbidden,
+  notifyForbidden,
 };
 
 export default api;

@@ -17,6 +17,7 @@ import api, {
   setStoredUser,
   isAuthenticated,
   onUnauthorized,
+  onForbidden,
   formatTaskCategory,
   formatTaskStatus,
   formatSeason,
@@ -36,6 +37,7 @@ import Leaderboard from "./components/Leaderboard";
 import ProfileView from "./components/ProfileView";
 import NotificationBell from "./components/NotificationBell";
 import NotificationsView from "./components/NotificationsView";
+import StaffApp from "./components/StaffApp";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -2075,7 +2077,7 @@ export default function App() {
       setCurrentUser(null);
     }
 
-    // Listener para tratar respostas 401/403 e redirecionar imediatamente para AuthPage
+    // Listener para tratar respostas 401 (sessão encerrada) e redirecionar imediatamente para AuthPage
     const unsubscribe = onUnauthorized(() => {
       setIsAuth(false);
       setCurrentUser(null);
@@ -2090,12 +2092,22 @@ export default function App() {
       });
     });
 
+    // Listener para tratar respostas 403 Forbidden (NÃO encerra a sessão, apenas avisa)
+    const unsubForbidden = onForbidden((message) => {
+      addToast({
+        type: "error",
+        title: "Acesso Negado",
+        message: message || "Você não tem permissão para esta ação.",
+      });
+    });
+
     const interval = setInterval(() => {
       checkApiHealth().then(online => setIsApiConnected(online));
     }, 15000);
 
     return () => {
       unsubscribe();
+      unsubForbidden();
       clearInterval(interval);
     };
   }, [loadUserData, addToast]);
@@ -2434,6 +2446,24 @@ export default function App() {
       <div className="min-h-screen min-h-[100dvh] w-full flex flex-col flex-1" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
         {renderToasts()}
         <AuthPage onAuthSuccess={handleAuthSuccess} />
+      </div>
+    );
+  }
+
+  // ── PERFIS DE STAFF (PROFESSOR / MENTOR e ADMINISTRADOR) ──
+  if (currentUser.role === "MENTOR" || currentUser.role === "ADMIN") {
+    return (
+      <div className="min-h-screen min-h-[100dvh] flex flex-col flex-1 w-full" style={{ background: "#0c0e15", fontFamily: "'Inter', system-ui, sans-serif" }}>
+        {renderToasts()}
+        <StaffApp
+          user={currentUser}
+          onLogout={handleLogout}
+          onUserUpdated={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            setStoredUser(updatedUser);
+          }}
+          addToast={addToast}
+        />
       </div>
     );
   }
