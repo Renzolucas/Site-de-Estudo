@@ -4,9 +4,10 @@ import { loginUser, type UserProfileResponse } from "../services/api";
 interface LoginFormProps {
   onSuccess: (user: UserProfileResponse) => void;
   onSwitchToRegister?: () => void;
+  onSwitchToForgotPassword?: () => void;
 }
 
-export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onSuccess, onSwitchToRegister, onSwitchToForgotPassword }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -169,6 +170,17 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
               Criar conta gratuita
             </button>
           </p>
+          {onSwitchToForgotPassword && (
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={onSwitchToForgotPassword}
+                className="min-h-[44px] inline-flex items-center text-xs text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors cursor-pointer"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
         </div>
       )}
     </form>

@@ -2,16 +2,19 @@ package com.studyos.api.service.user;
 
 import com.studyos.api.dto.gamification.response.LeaderboardUserResponse;
 import com.studyos.api.dto.gamification.response.StudyStatsResponse;
+import com.studyos.api.dto.user.request.UserNameUpdateRequest;
 import com.studyos.api.dto.user.request.UserRegisterRequest;
 import com.studyos.api.dto.user.request.UserUpdateRequest;
 import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.exception.custom.BusinessRuleException;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
+import com.studyos.api.exception.custom.UnauthorizedException;
 import com.studyos.api.model.User;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.timelog.TimeLogRepository;
 import com.studyos.api.repository.user.UserRepository;
+import com.studyos.api.service.auth.JwtTokenService;
 import com.studyos.api.service.gamification.GamificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,7 @@ public class UserService {
     private final TaskRepository taskRepository;
     private final TimeLogRepository timeLogRepository;
     private final GamificationService gamificationService;
+    private final JwtTokenService jwtTokenService;
 
     @Transactional
     public UserResponse register(UserRegisterRequest request) {
@@ -72,6 +76,50 @@ public class UserService {
         user.setName(request.name());
         User updated = userRepository.save(user);
         return UserResponse.fromEntity(updated);
+    }
+
+    @Transactional
+    public UserResponse updateName(String authHeader, UserNameUpdateRequest request) {
+        User user = getAuthenticatedUserEntity(authHeader);
+
+        if (request == null || request.name() == null) {
+            throw new BusinessRuleException("O nome é obrigatório.");
+        }
+
+        String cleanName = request.name().trim();
+        if (cleanName.length() < 2 || cleanName.length() > 100) {
+            throw new BusinessRuleException("O nome deve ter entre 2 e 100 caracteres.");
+        }
+
+        user.setName(cleanName);
+        User updated = userRepository.save(user);
+        return UserResponse.fromEntity(updated);
+    }
+
+    @Transactional(readOnly = true)
+    public User getAuthenticatedUserEntity(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new UnauthorizedException("Token de autorização não fornecido ou formato inválido.");
+        }
+
+        String token = authHeader.substring(7).trim();
+        if (!jwtTokenService.validateToken(token)) {
+            throw new UnauthorizedException("Token JWT inválido ou expirado.");
+        }
+
+        Long userId = jwtTokenService.extractUserId(token);
+        if (userId != null) {
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        }
+
+        String email = jwtTokenService.extractEmail(token);
+        if (email != null) {
+            return userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
+        }
+
+        throw new UnauthorizedException("Token inválido.");
     }
 
     @Transactional(readOnly = true)

@@ -1,7 +1,15 @@
 package com.studyos.api.controller.auth;
 
+import com.studyos.api.dto.auth.request.ChangePasswordRequest;
+import com.studyos.api.dto.auth.request.ForgotPasswordRequest;
 import com.studyos.api.dto.auth.request.LoginRequest;
+import com.studyos.api.dto.auth.request.ResetPasswordRequest;
+import com.studyos.api.dto.auth.request.VerifyResetCodeRequest;
 import com.studyos.api.dto.auth.response.AuthResponse;
+import com.studyos.api.dto.auth.response.ChangePasswordResponse;
+import com.studyos.api.dto.auth.response.ForgotPasswordResponse;
+import com.studyos.api.dto.auth.response.ResetPasswordResponse;
+import com.studyos.api.dto.auth.response.VerifyResetCodeResponse;
 import com.studyos.api.dto.user.request.UserRegisterRequest;
 import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.service.auth.AuthService;
@@ -39,5 +47,31 @@ public class AuthController {
     public ResponseEntity<UserResponse> getAuthenticatedUser(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         return ResponseEntity.ok(authService.getAuthenticatedUser(authHeader));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        ForgotPasswordResponse response = authService.forgotPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<VerifyResetCodeResponse> verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
+        VerifyResetCodeResponse response = authService.verifyResetCode(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ResetPasswordResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        ResetPasswordResponse response = authService.resetPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ChangePasswordResponse> changePassword(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        ChangePasswordResponse response = authService.changePassword(authHeader, request);
+        return ResponseEntity.ok(response);
     }
 }

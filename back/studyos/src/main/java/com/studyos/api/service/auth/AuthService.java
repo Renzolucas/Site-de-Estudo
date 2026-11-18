@@ -1,7 +1,15 @@
 package com.studyos.api.service.auth;
 
+import com.studyos.api.dto.auth.request.ChangePasswordRequest;
+import com.studyos.api.dto.auth.request.ForgotPasswordRequest;
 import com.studyos.api.dto.auth.request.LoginRequest;
+import com.studyos.api.dto.auth.request.ResetPasswordRequest;
+import com.studyos.api.dto.auth.request.VerifyResetCodeRequest;
 import com.studyos.api.dto.auth.response.AuthResponse;
+import com.studyos.api.dto.auth.response.ChangePasswordResponse;
+import com.studyos.api.dto.auth.response.ForgotPasswordResponse;
+import com.studyos.api.dto.auth.response.ResetPasswordResponse;
+import com.studyos.api.dto.auth.response.VerifyResetCodeResponse;
 import com.studyos.api.dto.user.request.UserRegisterRequest;
 import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.exception.custom.BusinessRuleException;
@@ -20,6 +28,22 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final JwtTokenService jwtTokenService;
+    private final PasswordResetService passwordResetService;
+
+    @Transactional
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        return passwordResetService.forgotPassword(request);
+    }
+
+    @Transactional
+    public VerifyResetCodeResponse verifyResetCode(VerifyResetCodeRequest request) {
+        return passwordResetService.verifyResetCode(request);
+    }
+
+    @Transactional
+    public ResetPasswordResponse resetPassword(ResetPasswordRequest request) {
+        return passwordResetService.resetPassword(request);
+    }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
@@ -65,5 +89,31 @@ public class AuthService {
         }
 
         return userService.findById(userId);
+    }
+
+    @Transactional
+    public ChangePasswordResponse changePassword(String authHeader, ChangePasswordRequest request) {
+        User user = userService.getAuthenticatedUserEntity(authHeader);
+
+        if (request == null || request.currentPassword() == null || request.newPassword() == null) {
+            throw new BusinessRuleException("A senha atual e a nova senha são obrigatórias.");
+        }
+
+        if (!user.getPassword().equals(request.currentPassword())) {
+            throw new BusinessRuleException("Senha atual incorreta.");
+        }
+
+        if (user.getPassword().equals(request.newPassword())) {
+            throw new BusinessRuleException("A nova senha deve ser diferente da senha atual.");
+        }
+
+        if (request.newPassword().length() < 6) {
+            throw new BusinessRuleException("A nova senha deve ter no mínimo 6 caracteres.");
+        }
+
+        user.setPassword(request.newPassword());
+        userRepository.save(user);
+
+        return new ChangePasswordResponse("Senha alterada com sucesso.");
     }
 }

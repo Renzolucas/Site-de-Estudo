@@ -33,11 +33,12 @@ import api, {
 } from "./services/api";
 import AuthPage from "./components/AuthPage";
 import Leaderboard from "./components/Leaderboard";
+import ProfileView from "./components/ProfileView";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TaskStatus = "completed" | "partial" | "in-progress" | "pending";
-type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard";
+type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard" | "Profile";
 
 interface MacroTask {
   id: number;
@@ -2560,19 +2561,30 @@ export default function App() {
                 <XPBar current={currentXpInLevel} max={maxXpInLevel} />
               </div>
 
-              {/* User Avatar */}
-              <div
-                className="relative flex items-center gap-2 pl-1.5 sm:pl-2 border-l border-slate-800"
-                title={`${user.name} (${user.email})`}
+              {/* User Avatar Button (Meu Perfil) */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("Profile")}
+                className={`relative flex items-center gap-2 pl-1.5 sm:pl-2 py-1 px-1.5 rounded-xl border border-transparent transition-all cursor-pointer hover:bg-slate-800/60 ${
+                  activeTab === "Profile"
+                    ? "ring-2 ring-indigo-500 bg-slate-800/70"
+                    : ""
+                }`}
+                title="Meu perfil"
+                aria-label="Abrir meu perfil"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20">
+                <div
+                  className={`w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-indigo-500/20 ${
+                    activeTab === "Profile" ? "ring-2 ring-indigo-400" : ""
+                  }`}
+                >
                   {user.name ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "US"}
                 </div>
                 <div className="hidden xl:block text-left">
                   <p className="text-xs font-semibold text-slate-200 leading-tight truncate max-w-[100px]">{user.name}</p>
                 </div>
-                <div className="absolute top-0 left-7 sm:left-8 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
-              </div>
+                <div className="absolute top-1 left-7 sm:left-8 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+              </button>
 
               {/* Botão de Logout ("Sair") */}
               <button
@@ -2884,6 +2896,18 @@ export default function App() {
 
         {activeTab === "Leaderboard" && (
           <Leaderboard currentUserId={user.id} />
+        )}
+
+        {activeTab === "Profile" && (
+          <ProfileView
+            user={user}
+            onBack={() => setActiveTab("Dashboard")}
+            onUserUpdated={(updatedUser) => {
+              setCurrentUser(updatedUser);
+              setStoredUser(updatedUser);
+            }}
+            addToast={addToast}
+          />
         )}
       </main>
 

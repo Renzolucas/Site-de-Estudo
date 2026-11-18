@@ -1,6 +1,7 @@
 package com.studyos.api.controller.user;
 
 import com.studyos.api.dto.gamification.response.StudyStatsResponse;
+import com.studyos.api.dto.user.request.UserNameUpdateRequest;
 import com.studyos.api.dto.user.request.UserRegisterRequest;
 import com.studyos.api.dto.user.request.UserUpdateRequest;
 import com.studyos.api.dto.user.response.UserResponse;
@@ -9,10 +10,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -51,5 +54,12 @@ public class UserController {
     @GetMapping("/{id}/stats")
     public ResponseEntity<StudyStatsResponse> getUserStats(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserStats(id));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponse> updateName(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody UserNameUpdateRequest request) {
+        return ResponseEntity.ok(userService.updateName(authHeader, request));
     }
 }
