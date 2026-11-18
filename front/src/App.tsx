@@ -34,11 +34,13 @@ import api, {
 import AuthPage from "./components/AuthPage";
 import Leaderboard from "./components/Leaderboard";
 import ProfileView from "./components/ProfileView";
+import NotificationBell from "./components/NotificationBell";
+import NotificationsView from "./components/NotificationsView";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TaskStatus = "completed" | "partial" | "in-progress" | "pending";
-type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard" | "Profile";
+type NavTab = "Dashboard" | "Performance" | "Badges" | "Roadmap" | "Leaderboard" | "Profile" | "Notifications";
 
 interface MacroTask {
   id: number;
@@ -2533,6 +2535,12 @@ export default function App() {
                 />
               </div>
 
+              {/* Notificações Bell */}
+              <NotificationBell
+                onOpenAll={() => setActiveTab("Notifications")}
+                addToast={addToast}
+              />
+
               {/* Streak */}
               <div
                 className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-amber-900/50 bg-amber-950/30"
@@ -2906,6 +2914,13 @@ export default function App() {
               setCurrentUser(updatedUser);
               setStoredUser(updatedUser);
             }}
+            addToast={addToast}
+          />
+        )}
+
+        {activeTab === "Notifications" && (
+          <NotificationsView
+            onBack={() => setActiveTab("Dashboard")}
             addToast={addToast}
           />
         )}

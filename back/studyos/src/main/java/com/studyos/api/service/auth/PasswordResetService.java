@@ -9,8 +9,10 @@ import com.studyos.api.dto.auth.response.VerifyResetCodeResponse;
 import com.studyos.api.exception.custom.BusinessRuleException;
 import com.studyos.api.model.PasswordResetToken;
 import com.studyos.api.model.User;
+import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.repository.auth.PasswordResetTokenRepository;
 import com.studyos.api.repository.user.UserRepository;
+import com.studyos.api.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,7 @@ public class PasswordResetService {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -171,6 +174,14 @@ public class PasswordResetService {
         // Atualiza a senha no mesmo formato usado pelo cadastro
         user.setPassword(request.newPassword());
         userRepository.save(user);
+
+        notificationService.createNotificationSilently(
+                user,
+                NotificationType.PASSWORD_CHANGED,
+                "Senha alterada",
+                "Sua senha foi alterada. Se não foi você, entre em contato com o suporte.",
+                null
+        );
 
         // Invalida o código após uso único
         token.setUsed(true);

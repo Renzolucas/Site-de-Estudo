@@ -10,12 +10,14 @@ import com.studyos.api.exception.custom.BusinessRuleException;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
 import com.studyos.api.exception.custom.UnauthorizedException;
 import com.studyos.api.model.User;
+import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.timelog.TimeLogRepository;
 import com.studyos.api.repository.user.UserRepository;
 import com.studyos.api.service.auth.JwtTokenService;
 import com.studyos.api.service.gamification.GamificationService;
+import com.studyos.api.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class UserService {
     private final TimeLogRepository timeLogRepository;
     private final GamificationService gamificationService;
     private final JwtTokenService jwtTokenService;
+    private final NotificationService notificationService;
 
     @Transactional
     public UserResponse register(UserRegisterRequest request) {
@@ -49,6 +52,15 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        notificationService.createNotificationSilently(
+                savedUser,
+                NotificationType.WELCOME,
+                "Bem-vindo ao StudyOS!",
+                "Sua jornada de estudos e organização começa agora. Defina seus objetivos e acompanhe sua evolução!",
+                null
+        );
+
         return UserResponse.fromEntity(savedUser);
     }
 

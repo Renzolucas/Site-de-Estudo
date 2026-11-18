@@ -15,7 +15,9 @@ import com.studyos.api.dto.user.response.UserResponse;
 import com.studyos.api.exception.custom.BusinessRuleException;
 import com.studyos.api.exception.custom.ResourceNotFoundException;
 import com.studyos.api.model.User;
+import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.repository.user.UserRepository;
+import com.studyos.api.service.notification.NotificationService;
 import com.studyos.api.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class AuthService {
     private final UserService userService;
     private final JwtTokenService jwtTokenService;
     private final PasswordResetService passwordResetService;
+    private final NotificationService notificationService;
 
     @Transactional
     public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
@@ -113,6 +116,14 @@ public class AuthService {
 
         user.setPassword(request.newPassword());
         userRepository.save(user);
+
+        notificationService.createNotificationSilently(
+                user,
+                NotificationType.PASSWORD_CHANGED,
+                "Senha alterada",
+                "Sua senha foi alterada. Se não foi você, entre em contato com o suporte.",
+                null
+        );
 
         return new ChangePasswordResponse("Senha alterada com sucesso.");
     }

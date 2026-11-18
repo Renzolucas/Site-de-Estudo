@@ -694,6 +694,30 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+export type NotificationType =
+  | 'WELCOME'
+  | 'LEVEL_UP'
+  | 'FROZEN_EARNED'
+  | 'PASSWORD_CHANGED'
+  | 'TASK_DUE_SOON'
+  | 'TASK_OVERDUE'
+  | 'ANNOUNCEMENT';
+
+export interface NotificationResponse {
+  id: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
+  read: boolean;
+  referenceKey?: string | null;
+}
+
+export interface UnreadCountResponse {
+  unreadCount: number;
+}
+
 /**
  * Solicita envio de código de verificação para recuperação de senha (POST /auth/forgot-password).
  */
@@ -767,6 +791,51 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<Ch
   });
 }
 
+/**
+ * Busca notificações do usuário autenticado (GET /notifications).
+ */
+export async function getNotifications(unreadOnly = false, limit = 50): Promise<NotificationResponse[]> {
+  const params = new URLSearchParams();
+  if (unreadOnly) params.append('unreadOnly', 'true');
+  if (limit) params.append('limit', String(limit));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return await fetchApi<NotificationResponse[]>(`/notifications${query}`);
+}
+
+/**
+ * Obtém contagem de notificações não lidas (GET /notifications/unread-count).
+ */
+export async function getUnreadNotificationsCount(): Promise<UnreadCountResponse> {
+  return await fetchApi<UnreadCountResponse>('/notifications/unread-count');
+}
+
+/**
+ * Marca uma notificação como lida (PATCH /notifications/{id}/read).
+ */
+export async function markNotificationAsRead(id: number): Promise<NotificationResponse> {
+  return await fetchApi<NotificationResponse>(`/notifications/${id}/read`, {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Marca todas as notificações como lidas (PATCH /notifications/read-all).
+ */
+export async function markAllNotificationsAsRead(): Promise<UnreadCountResponse> {
+  return await fetchApi<UnreadCountResponse>('/notifications/read-all', {
+    method: 'PATCH',
+  });
+}
+
+/**
+ * Exclui uma notificação (DELETE /notifications/{id}).
+ */
+export async function deleteNotification(id: number): Promise<void> {
+  await fetchApi<void>(`/notifications/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 const api = {
   getTasksBySeason,
   getTasks,
@@ -795,6 +864,11 @@ const api = {
   resetPassword,
   updateCurrentUserName,
   changePassword,
+  getNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
 };
 
 export default api;

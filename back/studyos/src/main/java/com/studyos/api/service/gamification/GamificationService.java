@@ -3,10 +3,12 @@ package com.studyos.api.service.gamification;
 import com.studyos.api.model.Task;
 import com.studyos.api.model.User;
 import com.studyos.api.model.enums.CompletionStatus;
+import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.model.enums.TaskCategory;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.task.TaskRepository;
 import com.studyos.api.repository.user.UserRepository;
+import com.studyos.api.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,10 +28,20 @@ public class GamificationService {
 
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
+    private final NotificationService notificationService;
 
     private static final int BASE_XP_PER_MINUTE = 1;
     private static final int BASE_TASK_XP_PER_15_MIN = 10;
     private static final int XP_PER_LEVEL = 500;
+
+    public static String getLevelTitle(int level) {
+        if (level <= 1) return "Iniciante";
+        if (level <= 3) return "Aprendiz";
+        if (level <= 5) return "Estudioso";
+        if (level <= 8) return "Mestre";
+        if (level <= 12) return "Grão-Mestre";
+        return "Lenda";
+    }
 
     /**
      * Calcula o XP base para uma tarefa com base na duração planejada e categoria.
@@ -83,6 +95,13 @@ public class GamificationService {
         if (newLevel > user.getLevel()) {
             log.info("Parabéns! Usuário {} subiu para o nível {}", user.getEmail(), newLevel);
             user.setLevel(newLevel);
+            notificationService.createNotificationSilently(
+                    user,
+                    NotificationType.LEVEL_UP,
+                    "Subida de Nível!",
+                    "Você chegou ao nível " + newLevel + " · " + getLevelTitle(newLevel),
+                    null
+            );
         }
 
         return userRepository.save(user);
@@ -140,6 +159,13 @@ public class GamificationService {
                 user.setFrozenCount(currentFrozen + earnedFrozen);
                 log.info("Usuário {} atingiu {} dias de streak e recebeu {} Frozen! Total: {}",
                         user.getEmail(), newStreak, earnedFrozen, user.getFrozenCount());
+                notificationService.createNotificationSilently(
+                        user,
+                        NotificationType.FROZEN_EARNED,
+                        "Proteção de Streak conquistada!",
+                        "Você atingiu " + newStreak + " dias de sequência e ganhou +" + earnedFrozen + " Frozen!",
+                        null
+                );
             }
         } else {
             // Regra 1: Se a lição conceder 0 XP: NÃO deve aumentar o streak
