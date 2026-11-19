@@ -40,4 +40,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByUserIdAndDateInRange(@Param("userId") Long userId, @Param("date") LocalDate date);
 
     long countByUserIdAndStatus(Long userId, TaskStatus status);
+
+    long countByStatus(TaskStatus status);
 }

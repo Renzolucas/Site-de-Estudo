@@ -149,6 +149,72 @@ export interface UserProfileResponse {
   active?: boolean;
 }
 
+export interface AdminActionLogItem {
+  id: number;
+  actorName: string;
+  actorEmail?: string;
+  targetUserName?: string;
+  action: string;
+  details: string;
+  createdAt: string;
+}
+
+export interface AdminOverviewResponse {
+  studentsCount: number;
+  mentorsCount: number;
+  adminsCount: number;
+  activeUsersCount: number;
+  inactiveUsersCount: number;
+  studentsWithoutMentorCount: number;
+  totalTasks: number;
+  completedTasks: number;
+  totalStudyMinutes: number;
+  totalAnnouncements: number;
+  recentActions: AdminActionLogItem[];
+}
+
+export interface AdminUserResponse {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  mentor?: UserMentorResponse | null;
+  level: number;
+  currentXp: number;
+}
+
+export interface AdminMentorSummaryResponse {
+  id: number;
+  name: string;
+}
+
+export type AnnouncementAudience = 'ALL' | 'STUDENTS' | 'MENTORS';
+
+export interface AnnouncementResponse {
+  id: number;
+  title: string;
+  message: string;
+  audience: AnnouncementAudience;
+  createdAt: string;
+  recipientsCount: number;
+  authorName: string;
+}
+
+export interface CreateAdminUserData {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  mentorId?: number | null;
+}
+
+export interface CreateAnnouncementData {
+  title: string;
+  message: string;
+  audience: AnnouncementAudience;
+}
+
 export interface StudyStatsResponse {
   totalStudyMinutes: number;
   totalTasksCompleted: number;
@@ -880,6 +946,70 @@ export async function deleteNotification(id: number): Promise<void> {
   });
 }
 
+// ── Admin API Functions ───────────────────────────────────────────────────
+
+export async function getAdminOverview(): Promise<AdminOverviewResponse> {
+  return await fetchApi<AdminOverviewResponse>('/admin/overview', { method: 'GET' });
+}
+
+export async function getAdminUsers(params?: {
+  search?: string;
+  role?: UserRole;
+  status?: 'active' | 'inactive';
+  noMentor?: boolean;
+}): Promise<AdminUserResponse[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.append('search', params.search);
+  if (params?.role) query.append('role', params.role);
+  if (params?.status) query.append('status', params.status);
+  if (params?.noMentor !== undefined && params?.noMentor !== null) query.append('noMentor', String(params.noMentor));
+  const qs = query.toString();
+  return await fetchApi<AdminUserResponse[]>(`/admin/users${qs ? `?${qs}` : ''}`, { method: 'GET' });
+}
+
+export async function getAdminMentors(): Promise<AdminMentorSummaryResponse[]> {
+  return await fetchApi<AdminMentorSummaryResponse[]>('/admin/mentors', { method: 'GET' });
+}
+
+export async function createAdminUser(data: CreateAdminUserData): Promise<AdminUserResponse> {
+  return await fetchApi<AdminUserResponse>('/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminUserRole(id: number, role: UserRole): Promise<AdminUserResponse> {
+  return await fetchApi<AdminUserResponse>(`/admin/users/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function updateAdminUserStatus(id: number, active: boolean): Promise<AdminUserResponse> {
+  return await fetchApi<AdminUserResponse>(`/admin/users/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ active }),
+  });
+}
+
+export async function updateAdminUserMentor(id: number, mentorId: number | null): Promise<AdminUserResponse> {
+  return await fetchApi<AdminUserResponse>(`/admin/users/${id}/mentor`, {
+    method: 'PATCH',
+    body: JSON.stringify({ mentorId }),
+  });
+}
+
+export async function createAdminAnnouncement(data: CreateAnnouncementData): Promise<AnnouncementResponse> {
+  return await fetchApi<AnnouncementResponse>('/admin/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getAdminAnnouncements(): Promise<AnnouncementResponse[]> {
+  return await fetchApi<AnnouncementResponse[]>('/admin/announcements', { method: 'GET' });
+}
+
 const api = {
   getTasksBySeason,
   getTasks,
@@ -913,6 +1043,15 @@ const api = {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
+  getAdminOverview,
+  getAdminUsers,
+  getAdminMentors,
+  createAdminUser,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+  updateAdminUserMentor,
+  createAdminAnnouncement,
+  getAdminAnnouncements,
   onForbidden,
   notifyForbidden,
 };

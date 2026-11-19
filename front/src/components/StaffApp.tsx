@@ -5,6 +5,10 @@ import ProfileView from "./ProfileView";
 import NotificationBell from "./NotificationBell";
 import NotificationsView from "./NotificationsView";
 import RoleBadge, { getRoleConfig } from "./roles";
+import AdminOverview from "./admin/AdminOverview";
+import AdminUsers from "./admin/AdminUsers";
+import AdminAnnouncements from "./admin/AdminAnnouncements";
+import AdminPermissions from "./admin/AdminPermissions";
 
 /**
  * POLÍTICA DE PERMISSÕES DO STUDYOS
@@ -58,6 +62,7 @@ export default function StaffApp({
   const [activeTab, setActiveTab] = useState<string>(tabs[0]);
   const [viewState, setViewState] = useState<StaffViewState>("tabs");
   const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
+  const [noMentorUsersFilter, setNoMentorUsersFilter] = useState(false);
 
   // Monitora conectividade com a API Spring Boot
   useEffect(() => {
@@ -82,34 +87,18 @@ export default function StaffApp({
 
   const getTabDescription = (tab: string): string => {
     switch (tab) {
-      case "Visão geral":
-        return "Métricas globais de uso, total de alunos, mentores e atividade na plataforma.";
-      case "Usuários":
-        return "Gestão de contas, ativação/desativação de acessos e atribuição de papéis institucionais.";
-      case "Avisos":
-        return isAdmin
-          ? "Publicação de avisos gerais e comunicados do sistema para todos os estudantes e mentores."
-          : "Envio de orientações, lembretes de prazos e comunicados direcionados aos seus alunos.";
-      case "Permissões":
-        return "Auditoria de privilégios de acesso e controle de regras de segurança institucional.";
       case "Painel":
         return "Resumo consolidado do desempenho e dedicação semanal dos estudantes orientados.";
       case "Meus alunos":
         return "Lista detalhada de alunos vinculados, horas de estudo, tarefas concluídas e ritmo acadêmico.";
+      case "Avisos":
+        return "Envio de orientações, lembretes de prazos e comunicados direcionados aos seus alunos vinculados.";
       default:
-        return "Área em desenvolvimento.";
+        return "Esta área será liberada na próxima etapa.";
     }
   };
 
   const getCapabilitiesList = (): string[] => {
-    if (isAdmin) {
-      return [
-        "Gerenciar usuários, papéis (Estudante, Mentor, Admin) e vínculos de mentoria",
-        "Publicar avisos e comunicados gerais visíveis a toda a instituição",
-        "Desativar ou reativar contas com total controle de governança (sem exclusão física)",
-        "Auditar regras de segurança e privilégios de acesso do sistema",
-      ];
-    }
     return [
       "Acompanhar o progresso dos alunos vinculados (horas estudadas, XP e tarefas)",
       "Enviar avisos e orientações diretas para seus estudantes acompanhados",
@@ -186,7 +175,7 @@ export default function StaffApp({
               </nav>
             </div>
 
-            {/* Direita: Status da API, Selo mobile, Notificações, Perfil e Sair */}
+            {/* Direita: Status da API, Notificações, Perfil e Sair */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {/* Indicador de Conexão com o Spring Boot */}
               <div
@@ -313,98 +302,131 @@ export default function StaffApp({
         )}
 
         {viewState === "tabs" && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Cartão de Boas-vindas do Perfil */}
-            <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6 sm:p-7 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/50">
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl sm:text-2xl">{roleConfig.icon}</span>
-                    <h1 className="heading-fluid-title font-semibold text-slate-100">
-                      Olá, {user.name}
-                    </h1>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-                    {roleConfig.description}
-                  </p>
-                </div>
-                <div className="flex-shrink-0">
-                  <RoleBadge role={user.role} size="lg" />
-                </div>
-              </div>
+          <>
+            {/* ── SE FOR ADMINISTRADOR: RENDERIZA AS TELAS REAIS ── */}
+            {isAdmin ? (
+              <>
+                {activeTab === "Visão geral" && (
+                  <AdminOverview
+                    onNavigateToUsers={(filter) => {
+                      setNoMentorUsersFilter(!!filter?.noMentor);
+                      setActiveTab("Usuários");
+                    }}
+                  />
+                )}
 
-              {/* Lista "O que você pode fazer" */}
-              <div className="mt-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                  O que você pode fazer
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {getCapabilitiesList().map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/70"
-                    >
-                      <div className="w-5 h-5 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0 mt-0.5">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                {activeTab === "Usuários" && (
+                  <AdminUsers
+                    currentUser={user}
+                    addToast={addToast}
+                    initialNoMentorFilter={noMentorUsersFilter}
+                  />
+                )}
+
+                {activeTab === "Avisos" && (
+                  <AdminAnnouncements addToast={addToast} />
+                )}
+
+                {activeTab === "Permissões" && (
+                  <AdminPermissions />
+                )}
+              </>
+            ) : (
+              /* ── SE FOR MENTOR: MANTÉM OS ESTADOS VAZIOS PARA A ETAPA 3 ── */
+              <div className="space-y-6 animate-fade-in">
+                {/* Cartão de Boas-vindas do Mentor */}
+                <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6 sm:p-7 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/50">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl sm:text-2xl">{roleConfig.icon}</span>
+                        <h1 className="heading-fluid-title font-semibold text-slate-100">
+                          Olá, {user.name}
+                        </h1>
                       </div>
-                      <span className="text-xs text-slate-300 leading-relaxed">
-                        {item}
-                      </span>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                        {roleConfig.description}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex-shrink-0">
+                      <RoleBadge role={user.role} size="lg" />
+                    </div>
+                  </div>
+
+                  {/* Lista "O que você pode fazer" */}
+                  <div className="mt-5">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                      O que você pode fazer
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {getCapabilitiesList().map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/70"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0 mt-0.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </div>
+                          <span className="text-xs text-slate-300 leading-relaxed">
+                            {item}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estado Vazio da Aba Selecionada do Mentor */}
+                <div className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-10 sm:p-14 text-center shadow-sm flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-2xl shadow-inner shadow-cyan-500/5 mb-4">
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M7 7h10M7 12h10M7 17h6" />
+                    </svg>
+                  </div>
+
+                  <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 mb-2">
+                    Aba: {activeTab}
+                  </span>
+
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-200 mt-2">
+                    Esta área será liberada na próxima etapa
+                  </h3>
+
+                  <p className="text-xs sm:text-sm text-slate-400 max-w-md mt-1.5 leading-relaxed">
+                    {getTabDescription(activeTab)}
+                  </p>
+
+                  <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950/40 text-[11px] text-slate-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                    <span>
+                      Painel do Professor / Mentor será disponibilizado na Etapa 3 de 4.
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Estado Vazio da Aba Selecionada */}
-            <div className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-10 sm:p-14 text-center shadow-sm flex flex-col items-center">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-2xl shadow-inner shadow-indigo-500/5 mb-4">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect width="18" height="18" x="3" y="3" rx="2" />
-                  <path d="M7 7h10M7 12h10M7 17h6" />
-                </svg>
-              </div>
-
-              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20 mb-2">
-                Aba: {activeTab}
-              </span>
-
-              <h3 className="text-base sm:text-lg font-semibold text-slate-200 mt-2">
-                Esta área será liberada na próxima etapa
-              </h3>
-
-              <p className="text-xs sm:text-sm text-slate-400 max-w-md mt-1.5 leading-relaxed">
-                {getTabDescription(activeTab)}
-              </p>
-
-              <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950/40 text-[11px] text-slate-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                <span>
-                  Estrutura e permissões de acesso validadas com sucesso (Etapa 1 de 4).
-                </span>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </main>
     </div>
