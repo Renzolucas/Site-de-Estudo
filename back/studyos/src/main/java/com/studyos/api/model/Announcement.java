@@ -51,6 +51,11 @@ public class Announcement {
     @Column(nullable = false, length = 30)
     private AnnouncementAudience audience;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_student_id")
+    @ToString.Exclude
+    private User targetStudent;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

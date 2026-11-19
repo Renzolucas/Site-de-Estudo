@@ -189,7 +189,7 @@ export interface AdminMentorSummaryResponse {
   name: string;
 }
 
-export type AnnouncementAudience = 'ALL' | 'STUDENTS' | 'MENTORS';
+export type AnnouncementAudience = 'ALL' | 'STUDENTS' | 'MENTORS' | 'MY_STUDENTS' | 'ONE_STUDENT';
 
 export interface AnnouncementResponse {
   id: number;
@@ -199,6 +199,92 @@ export interface AnnouncementResponse {
   createdAt: string;
   recipientsCount: number;
   authorName: string;
+  targetStudentId?: number | null;
+  targetStudentName?: string | null;
+}
+
+export type MentorActivityStatus = 'UP_TO_DATE' | 'ATTENTION' | 'INACTIVE';
+
+export interface MentorTopStudent {
+  id: number;
+  name: string;
+  minutesLast7Days: number;
+  currentXp: number;
+  level: number;
+}
+
+export interface MentorOverviewResponse {
+  totalStudents: number;
+  totalStudyHours: number;
+  completedTasks: number;
+  totalTasks: number;
+  averageXp: number;
+  inactiveStudents: number;
+  topStudents: MentorTopStudent[];
+}
+
+export interface MentorStudentSummary {
+  id: number;
+  name: string;
+  level: number;
+  currentXp: number;
+  streakDays: number;
+  frozenCount: number;
+  tasksTotal: number;
+  tasksCompleted: number;
+  completionRate: number;
+  minutesLast7Days: number;
+  lastActivityAt?: string | null;
+  activityStatus: MentorActivityStatus;
+}
+
+export interface MentorDailyStudy {
+  date: string;
+  dayOfWeek: string;
+  minutes: number;
+}
+
+export interface MentorTask {
+  id: number;
+  title: string;
+  category: TaskCategory;
+  season: Season;
+  status: TaskStatus;
+  plannedMinutes: number;
+  completedMinutes: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface MentorSession {
+  id: number;
+  date: string;
+  durationMinutes: number;
+  completionStatus: CompletionStatus;
+}
+
+export interface MentorStudentDetail {
+  id: number;
+  name: string;
+  level: number;
+  currentXp: number;
+  streakDays: number;
+  frozenCount: number;
+  tasksTotal: number;
+  tasksCompleted: number;
+  completionRate: number;
+  minutesLast7Days: number;
+  lastActivityAt?: string | null;
+  activityStatus: MentorActivityStatus;
+  dailyStudyMinutes: MentorDailyStudy[];
+  tasks: MentorTask[];
+  recentSessions: MentorSession[];
+}
+
+export interface CreateMentorAnnouncementData {
+  title: string;
+  message: string;
+  studentId?: number | null;
 }
 
 export interface CreateAdminUserData {
@@ -1010,6 +1096,32 @@ export async function getAdminAnnouncements(): Promise<AnnouncementResponse[]> {
   return await fetchApi<AnnouncementResponse[]>('/admin/announcements', { method: 'GET' });
 }
 
+// ── Mentor API Functions ──────────────────────────────────────────────────
+
+export async function getMentorOverview(): Promise<MentorOverviewResponse> {
+  return await fetchApi<MentorOverviewResponse>('/mentor/overview', { method: 'GET' });
+}
+
+export async function getMentorStudents(search?: string): Promise<MentorStudentSummary[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  return await fetchApi<MentorStudentSummary[]>(`/mentor/students${query}`, { method: 'GET' });
+}
+
+export async function getMentorStudentDetail(id: number): Promise<MentorStudentDetail> {
+  return await fetchApi<MentorStudentDetail>(`/mentor/students/${id}`, { method: 'GET' });
+}
+
+export async function createMentorAnnouncement(data: CreateMentorAnnouncementData): Promise<AnnouncementResponse> {
+  return await fetchApi<AnnouncementResponse>('/mentor/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getMentorAnnouncements(): Promise<AnnouncementResponse[]> {
+  return await fetchApi<AnnouncementResponse[]>('/mentor/announcements', { method: 'GET' });
+}
+
 const api = {
   getTasksBySeason,
   getTasks,
@@ -1052,6 +1164,11 @@ const api = {
   updateAdminUserMentor,
   createAdminAnnouncement,
   getAdminAnnouncements,
+  getMentorOverview,
+  getMentorStudents,
+  getMentorStudentDetail,
+  createMentorAnnouncement,
+  getMentorAnnouncements,
   onForbidden,
   notifyForbidden,
 };

@@ -12,8 +12,15 @@ public record AnnouncementResponse(
         AnnouncementAudience audience,
         LocalDateTime createdAt,
         int recipientsCount,
-        String authorName
+        String authorName,
+        Long targetStudentId,
+        String targetStudentName
 ) {
+    public AnnouncementResponse(Long id, String title, String message, AnnouncementAudience audience,
+                                LocalDateTime createdAt, int recipientsCount, String authorName) {
+        this(id, title, message, audience, createdAt, recipientsCount, authorName, null, null);
+    }
+
     public static AnnouncementResponse fromEntity(Announcement entity) {
         if (entity == null) return null;
         return new AnnouncementResponse(
@@ -23,7 +30,9 @@ public record AnnouncementResponse(
                 entity.getAudience(),
                 entity.getCreatedAt(),
                 entity.getRecipientsCount(),
-                entity.getAuthor() != null ? entity.getAuthor().getName() : "Administrador"
+                entity.getAuthor() != null ? entity.getAuthor().getName() : "Administrador",
+                entity.getTargetStudent() != null ? entity.getTargetStudent().getId() : null,
+                entity.getTargetStudent() != null ? entity.getTargetStudent().getName() : null
         );
     }
 }

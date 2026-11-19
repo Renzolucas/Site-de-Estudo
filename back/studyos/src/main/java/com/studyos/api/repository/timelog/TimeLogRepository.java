@@ -36,4 +36,20 @@ public interface TimeLogRepository extends JpaRepository<TimeLog, Long> {
     Long sumStudyMinutesByUserIdAndPeriod(@Param("userId") Long userId,
                                          @Param("start") LocalDateTime start,
                                          @Param("end") LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(tl.loggedDurationMinutes), 0) FROM TimeLog tl " +
+           "WHERE tl.task.user.mentor.id = :mentorId AND tl.task.user.active = true")
+    Long sumTotalStudyMinutesByMentorId(@Param("mentorId") Long mentorId);
+
+    @Query("SELECT tl.task.user.id, MAX(tl.createdAt) FROM TimeLog tl " +
+           "WHERE tl.task.user.mentor.id = :mentorId AND tl.task.user.active = true " +
+           "GROUP BY tl.task.user.id")
+    List<Object[]> findLastActivityByMentorStudents(@Param("mentorId") Long mentorId);
+
+    @Query("SELECT tl.task.user.id, COALESCE(SUM(tl.loggedDurationMinutes), 0L) FROM TimeLog tl " +
+           "WHERE tl.task.user.mentor.id = :mentorId AND tl.task.user.active = true AND tl.createdAt >= :since " +
+           "GROUP BY tl.task.user.id")
+    List<Object[]> findMinutesLast7DaysByMentorStudents(@Param("mentorId") Long mentorId, @Param("since") LocalDateTime since);
+
+    List<TimeLog> findTop10ByTaskUserIdOrderByCreatedAtDesc(Long userId);
 }

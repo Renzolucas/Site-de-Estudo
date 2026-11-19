@@ -40,6 +40,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByMentorId(Long mentorId);
 
+    List<User> findByMentorIdAndActiveTrue(Long mentorId);
+
+    long countByMentorIdAndActiveTrue(Long mentorId);
+
+    @Query("SELECT u FROM User u WHERE u.mentor.id = :mentorId AND u.active = true " +
+           "AND (:search IS NULL OR LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "ORDER BY u.name ASC")
+    List<User> findActiveStudentsByMentor(@Param("mentorId") Long mentorId, @Param("search") String search);
+
+    @Query("SELECT COALESCE(AVG(u.currentXp), 0.0) FROM User u WHERE u.mentor.id = :mentorId AND u.active = true")
+    Double findAverageXpByMentorId(@Param("mentorId") Long mentorId);
+
     @Query("SELECT u FROM User u WHERE " +
            "(:search IS NULL OR LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "(:role IS NULL OR u.role = :role) AND " +

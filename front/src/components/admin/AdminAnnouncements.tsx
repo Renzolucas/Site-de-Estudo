@@ -122,6 +122,18 @@ export default function AdminAnnouncements({ addToast }: AdminAnnouncementsProps
           badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
           icon: "👨‍🏫",
         };
+      case "MY_STUDENTS":
+        return {
+          label: "Alunos do Mentor",
+          badge: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+          icon: "👥",
+        };
+      case "ONE_STUDENT":
+        return {
+          label: "Aluno Específico",
+          badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+          icon: "👤",
+        };
       default:
         return {
           label: "Todos os Usuários",
@@ -292,9 +304,12 @@ export default function AdminAnnouncements({ addToast }: AdminAnnouncementsProps
 
                   <p className="text-xs text-slate-300 leading-relaxed">{item.message}</p>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-850">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-850 gap-1">
                     <span>
                       Enviado por: <strong className="text-slate-300 font-medium">{item.authorName}</strong>
+                      {item.targetStudentName && (
+                        <span> · Aluno: <strong className="text-emerald-300 font-medium">{item.targetStudentName}</strong></span>
+                      )}
                     </span>
                     <span className="flex items-center gap-1 font-medium text-indigo-400">
                       <span>✓</span>

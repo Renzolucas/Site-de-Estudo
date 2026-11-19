@@ -9,6 +9,9 @@ import AdminOverview from "./admin/AdminOverview";
 import AdminUsers from "./admin/AdminUsers";
 import AdminAnnouncements from "./admin/AdminAnnouncements";
 import AdminPermissions from "./admin/AdminPermissions";
+import MentorOverview from "./mentor/MentorOverview";
+import MentorStudents from "./mentor/MentorStudents";
+import MentorAnnouncements from "./mentor/MentorAnnouncements";
 
 /**
  * POLÍTICA DE PERMISSÕES DO STUDYOS
@@ -63,6 +66,7 @@ export default function StaffApp({
   const [viewState, setViewState] = useState<StaffViewState>("tabs");
   const [isApiConnected, setIsApiConnected] = useState<boolean | null>(null);
   const [noMentorUsersFilter, setNoMentorUsersFilter] = useState(false);
+  const [mentorAnnouncementStudentId, setMentorAnnouncementStudentId] = useState<number | null>(null);
 
   // Monitora conectividade com a API Spring Boot
   useEffect(() => {
@@ -332,99 +336,37 @@ export default function StaffApp({
                 )}
               </>
             ) : (
-              /* ── SE FOR MENTOR: MANTÉM OS ESTADOS VAZIOS PARA A ETAPA 3 ── */
-              <div className="space-y-6 animate-fade-in">
-                {/* Cartão de Boas-vindas do Mentor */}
-                <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6 sm:p-7 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/50">
-                    <div>
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xl sm:text-2xl">{roleConfig.icon}</span>
-                        <h1 className="heading-fluid-title font-semibold text-slate-100">
-                          Olá, {user.name}
-                        </h1>
-                      </div>
-                      <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-                        {roleConfig.description}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <RoleBadge role={user.role} size="lg" />
-                    </div>
-                  </div>
+              /* ── SE FOR MENTOR: RENDERIZA AS TELAS REAIS DO MENTOR ── */
+              <>
+                {activeTab === "Painel" && (
+                  <MentorOverview
+                    onNavigateToStudents={() => setActiveTab("Meus alunos")}
+                    onNavigateToAnnouncements={() => {
+                      setMentorAnnouncementStudentId(null);
+                      setActiveTab("Avisos");
+                    }}
+                    addToast={addToast}
+                  />
+                )}
 
-                  {/* Lista "O que você pode fazer" */}
-                  <div className="mt-5">
-                    <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                      O que você pode fazer
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {getCapabilitiesList().map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/70"
-                        >
-                          <div className="w-5 h-5 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0 mt-0.5">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </div>
-                          <span className="text-xs text-slate-300 leading-relaxed">
-                            {item}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                {activeTab === "Meus alunos" && (
+                  <MentorStudents
+                    onNavigateToAnnouncements={(studentId) => {
+                      setMentorAnnouncementStudentId(studentId || null);
+                      setActiveTab("Avisos");
+                    }}
+                    addToast={addToast}
+                  />
+                )}
 
-                {/* Estado Vazio da Aba Selecionada do Mentor */}
-                <div className="rounded-2xl border border-slate-800/60 bg-slate-900/30 p-10 sm:p-14 text-center shadow-sm flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-2xl shadow-inner shadow-cyan-500/5 mb-4">
-                    <svg
-                      width="28"
-                      height="28"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="18" height="18" x="3" y="3" rx="2" />
-                      <path d="M7 7h10M7 12h10M7 17h6" />
-                    </svg>
-                  </div>
-
-                  <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 mb-2">
-                    Aba: {activeTab}
-                  </span>
-
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-200 mt-2">
-                    Esta área será liberada na próxima etapa
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-slate-400 max-w-md mt-1.5 leading-relaxed">
-                    {getTabDescription(activeTab)}
-                  </p>
-
-                  <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950/40 text-[11px] text-slate-500">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                    <span>
-                      Painel do Professor / Mentor será disponibilizado na Etapa 3 de 4.
-                    </span>
-                  </div>
-                </div>
-              </div>
+                {activeTab === "Avisos" && (
+                  <MentorAnnouncements
+                    addToast={addToast}
+                    initialSelectedStudentId={mentorAnnouncementStudentId}
+                    onClearInitialStudent={() => setMentorAnnouncementStudentId(null)}
+                  />
+                )}
+              </>
             )}
           </>
         )}
