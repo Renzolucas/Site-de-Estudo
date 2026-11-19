@@ -11,8 +11,7 @@ import com.studyos.api.model.enums.NotificationType;
 import com.studyos.api.model.enums.TaskStatus;
 import com.studyos.api.repository.notification.NotificationRepository;
 import com.studyos.api.repository.task.TaskRepository;
-import com.studyos.api.repository.user.UserRepository;
-import com.studyos.api.service.auth.JwtTokenService;
+import com.studyos.api.service.auth.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -36,8 +35,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final TaskRepository taskRepository;
-    private final UserRepository userRepository;
-    private final JwtTokenService jwtTokenService;
+    private final CurrentUserService currentUserService;
 
     @Transactional
     public List<NotificationResponse> getNotifications(String authHeader, boolean unreadOnly, int limit) {
@@ -205,36 +203,6 @@ public class NotificationService {
     }
 
     public User getAuthenticatedUser(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new UnauthorizedException("Token de autorização não fornecido ou formato inválido.");
-        }
-
-        String token = authHeader.substring(7).trim();
-        if (!jwtTokenService.validateToken(token)) {
-            throw new UnauthorizedException("Token JWT inválido ou expirado.");
-        }
-
-        Long userId = jwtTokenService.extractUserId(token);
-        User user = null;
-        if (userId != null) {
-            user = userRepository.findById(userId)
-                    .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
-        } else {
-            String email = jwtTokenService.extractEmail(token);
-            if (email != null) {
-                user = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new UnauthorizedException("Usuário do token não encontrado."));
-            }
-        }
-
-        if (user == null) {
-            throw new UnauthorizedException("Token inválido.");
-        }
-
-        if (Boolean.FALSE.equals(user.getActive())) {
-            throw new UnauthorizedException("Conta de usuário inativa.");
-        }
-
-        return user;
+        return currentUserService.getCurrentUser(authHeader);
     }
 }

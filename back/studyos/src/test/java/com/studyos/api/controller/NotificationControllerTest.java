@@ -354,4 +354,25 @@ class NotificationControllerTest {
             notificationService.createNotificationSilently(null, NotificationType.WELCOME, "Teste", "Msg", null);
         });
     }
+
+    @Test
+    @DisplayName("Cenário 12: Token de usuário desativado em GET /notifications retorna 401")
+    void testInactiveUserTokenReturns401OnGetNotifications() throws Exception {
+        User inactiveUser = User.builder()
+                .name("Usuario Inativo Notif")
+                .email("inativo.notif@studyos.com")
+                .password("senhaSegura123")
+                .active(false)
+                .level(1)
+                .currentXp(0L)
+                .streakDays(0)
+                .frozenCount(0)
+                .build();
+        inactiveUser = userRepository.save(inactiveUser);
+        String inactiveToken = jwtTokenService.generateToken(inactiveUser);
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + inactiveToken))
+                .andExpect(status().isUnauthorized());
+    }
 }
